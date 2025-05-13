@@ -8,6 +8,7 @@ import { Day as RdpDay, DayContent as RdpDayContent } from "react-day-picker";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, isSameDay } from "date-fns";
+import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -60,12 +61,12 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
     : [];
 
   const Footer = () => {
-    if (!selectedDate) return <p className="text-sm text-muted-foreground p-2">Select a day to see completed habits.</p>;
-    if (selectedDayCompletions.length === 0) return <p className="text-sm text-muted-foreground p-2">No habits completed on {format(selectedDate, "PPP")}.</p>;
+    if (!selectedDate) return <p className="text-sm text-muted-foreground p-2">Selecione um dia para ver os hábitos concluídos.</p>;
+    if (selectedDayCompletions.length === 0) return <p className="text-sm text-muted-foreground p-2">Nenhum hábito concluído em {format(selectedDate, "PPP", { locale: ptBR })}.</p>;
     
     return (
       <div className="p-2">
-        <h4 className="font-semibold mb-1">Completed on {format(selectedDate, "PPP")}:</h4>
+        <h4 className="font-semibold mb-1">Concluído em {format(selectedDate, "PPP", { locale: ptBR })}:</h4>
         <ul className="list-disc list-inside text-sm space-y-0.5 max-h-24 overflow-y-auto">
           {selectedDayCompletions.map(({ habit }) => (
             <li key={habit.id}>{habit.name}</li>
@@ -99,7 +100,7 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
   if (isLoading) {
     return (
       <Card>
-        <CardHeader><CardTitle>Completion Calendar</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Calendário de Conclusão</CardTitle></CardHeader>
         <CardContent className="h-[350px] flex justify-center items-center">
           <Skeleton className="w-full max-w-xs h-[300px] rounded-md" />
         </CardContent>
@@ -110,7 +111,7 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow">
       <CardHeader>
-        <CardTitle>Completion Calendar</CardTitle>
+        <CardTitle>Calendário de Conclusão</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
         <ShadcnCalendar
@@ -120,6 +121,7 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
           modifiers={modifiers}
           modifiersClassNames={modifiersClassNames}
           className="rounded-md border"
+          locale={ptBR}
           footer={<Footer />}
           components={{
             Day: (dayComponentProps: DayProps) => { // This is our custom Day cell renderer
@@ -144,7 +146,7 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
                       {BaseDayElementWithDots}
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-2 text-sm" side="top" align="center">
-                      <p className="font-semibold mb-1">Completed on {format(date, "PPP")}:</p>
+                      <p className="font-semibold mb-1">Concluído em {format(date, "PPP", { locale: ptBR })}:</p>
                       <ul className="list-none space-y-0.5">
                         {completions.map(({ habit }) => (
                           <li key={habit.id} className="text-xs">{habit.name}</li>

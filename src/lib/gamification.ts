@@ -224,7 +224,7 @@ export function getPieChartData(habits: Habit[], logs: HabitLog[], days: number 
   const dailyHabits = habits.filter(h => h.frequency === 'daily');
   
   if (dailyHabits.length === 0) {
-    return [{ name: "No Daily Habits", value: 1, fill: "hsl(var(--muted))" }];
+    return [{ name: "Sem Hábitos Diários", value: 1, fill: "hsl(var(--muted))" }];
   }
 
   dateRange.forEach(date => {
@@ -243,11 +243,11 @@ export function getPieChartData(habits: Habit[], logs: HabitLog[], days: number 
   });
   
   if (completedCount === 0 && missedCount === 0) {
-     return [{ name: "No Activity", value: 1, fill: "hsl(var(--muted))" }];
+     return [{ name: "Sem Atividade", value: 1, fill: "hsl(var(--muted))" }];
   }
 
   return [
-    { name: "Completed", value: completedCount, fill: "hsl(var(--success))" },
-    { name: "Missed", value: missedCount, fill: "hsl(var(--destructive))" },
+    { name: "Concluídos", value: completedCount, fill: "hsl(var(--success))" },
+    { name: "Perdidos", value: missedCount, fill: "hsl(var(--destructive))" },
   ];
 }

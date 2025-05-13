@@ -34,32 +34,37 @@ const SmileIcon = Smile;
 const TrendingUpIcon = TrendingUp;
 
 const categoryIcons: Record<string, React.ElementType> = {
-  Fitness: DumbbellIcon,
-  Health: HeartIcon,
-  Work: BriefcaseIcon,
-  Learning: BookOpenIcon,
-  Finance: DollarSignIcon,
-  Hobbies: SmileIcon,
-  "Personal Growth": TrendingUpIcon,
-  Home: HomeIcon,
-  Social: UsersIcon,
-  Other: LayersIcon,
+  "Fitness": DumbbellIcon,
+  "Saúde": HeartIcon,
+  "Trabalho": BriefcaseIcon,
+  "Aprendizado": BookOpenIcon,
+  "Finanças": DollarSignIcon,
+  "Hobbies": SmileIcon,
+  "Crescimento Pessoal": TrendingUpIcon,
+  "Casa": HomeIcon,
+  "Social": UsersIcon,
+  "Outro": LayersIcon,
 };
 
 function getCategoryIcon(category: string) {
   const normalizedCategory = category.toLowerCase();
+  // Direct match with translated keys
+  if (categoryIcons[category]) {
+    return categoryIcons[category];
+  }
+  // Fallback to normalized match if direct translated key isn't found (e.g. custom categories not exactly matching)
   for (const key in categoryIcons) {
     if (key.toLowerCase() === normalizedCategory) {
       return categoryIcons[key];
     }
   }
-  // Try to find a partial match for common terms
-  if (normalizedCategory.includes("fit") || normalizedCategory.includes("gym") || normalizedCategory.includes("exercise")) return DumbbellIcon;
-  if (normalizedCategory.includes("health") || normalizedCategory.includes("meditat")) return HeartIcon;
-  if (normalizedCategory.includes("work") || normalizedCategory.includes("job") || normalizedCategory.includes("career")) return BriefcaseIcon;
-  if (normalizedCategory.includes("learn") || normalizedCategory.includes("study") || normalizedCategory.includes("book")) return BookOpenIcon;
+  // Try to find a partial match for common terms in Portuguese
+  if (normalizedCategory.includes("fit") || normalizedCategory.includes("academia") || normalizedCategory.includes("exercício")) return DumbbellIcon;
+  if (normalizedCategory.includes("saude") || normalizedCategory.includes("saúde") || normalizedCategory.includes("medita")) return HeartIcon; // meditação
+  if (normalizedCategory.includes("trabalho") || normalizedCategory.includes("carreira")) return BriefcaseIcon;
+  if (normalizedCategory.includes("aprender") || normalizedCategory.includes("estudar") || normalizedCategory.includes("livro")) return BookOpenIcon;
   
-  return categoryIcons["Other"]; // Default icon
+  return categoryIcons["Outro"]; // Default icon (using translated "Outro")
 }
 
 interface HabitItemProps {
@@ -72,6 +77,8 @@ interface HabitItemProps {
 
 export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelete }: HabitItemProps) {
   const CategoryIcon = getCategoryIcon(habit.category);
+
+  const frequencyText = habit.frequency === "daily" ? "Diário" : "Semanal";
 
   return (
     <Card className={cn("transition-all hover:shadow-md", isCompletedToday ? "bg-success/10 border-success" : "")}>
@@ -92,27 +99,27 @@ export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelet
                 onSave={async (data) => onEdit(habit.id, data)}
                 existingHabit={habit}
                 triggerButton={
-                  <Button variant="ghost" size="icon" aria-label="Edit habit">
+                  <Button variant="ghost" size="icon" aria-label="Editar hábito">
                     <Edit className="h-4 w-4" />
                   </Button>
                 }
               />
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Delete habit" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Button variant="ghost" size="icon" aria-label="Excluir hábito" className="text-destructive hover:text-destructive hover:bg-destructive/10">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the habit "{habit.name}" and all its logs.
+                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o hábito "{habit.name}" e todos os seus registros.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(habit.id)} className={buttonVariants({variant: "destructive"})}>Delete</AlertDialogAction>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(habit.id)} className={buttonVariants({variant: "destructive"})}>Excluir</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -123,11 +130,11 @@ export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelet
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center">
             {habit.frequency === "daily" ? <CalendarDays className="mr-1.5 h-4 w-4" /> : <Repeat className="mr-1.5 h-4 w-4" />}
-            {habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}
+            {frequencyText}
           </div>
           <div className="flex items-center">
             <Zap className="mr-1.5 h-4 w-4 text-amber-500" />
-            {habit.points} points
+            {habit.points} pontos
           </div>
         </div>
       </CardContent>
@@ -139,11 +146,11 @@ export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelet
         >
           {isCompletedToday ? (
             <>
-              <XCircle className="mr-2 h-4 w-4" /> Unmark as Complete
+              <XCircle className="mr-2 h-4 w-4" /> Desmarcar como Concluído
             </>
           ) : (
             <>
-              <CheckCircle className="mr-2 h-4 w-4" /> Mark as Complete Today
+              <CheckCircle className="mr-2 h-4 w-4" /> Marcar como Concluído Hoje
             </>
           )}
         </Button>

@@ -19,12 +19,12 @@ export function DashboardStats({ habits, habitLogs, isLoading }: DashboardStatsP
   const stats = getOverallStats(habits, habitLogs);
 
   const statItems = [
-    { title: "Total Habits", value: stats.totalHabits, icon: BarChartBig, color: "text-primary" },
-    { title: "Total Completions", value: stats.totalCompletions, icon: CheckSquare, color: "text-success" },
-    { title: "Total Points", value: stats.totalPoints, icon: Zap, color: "text-amber-500" },
-    { title: "Current Streak", value: `${stats.currentOverallStreak} ${stats.currentOverallStreak === 1 ? "day" : "days"}`, icon: TrendingUp, color: "text-orange-500" },
-    { title: "Longest Streak", value: `${stats.longestOverallStreak} ${stats.longestOverallStreak === 1 ? "day" : "days"}`, icon: Trophy, color: "text-yellow-600" },
-    { title: "Success Rate (30d)", value: `${stats.successRate}%`, icon: Percent, color: "text-teal-500" },
+    { title: "Total de Hábitos", value: stats.totalHabits, icon: BarChartBig, color: "text-primary" },
+    { title: "Total de Conclusões", value: stats.totalCompletions, icon: CheckSquare, color: "text-success" },
+    { title: "Total de Pontos", value: stats.totalPoints, icon: Zap, color: "text-amber-500" },
+    { title: "Sequência Atual", value: `${stats.currentOverallStreak} ${stats.currentOverallStreak === 1 ? "dia" : "dias"}`, icon: TrendingUp, color: "text-orange-500" },
+    { title: "Maior Sequência", value: `${stats.longestOverallStreak} ${stats.longestOverallStreak === 1 ? "dia" : "dias"}`, icon: Trophy, color: "text-yellow-600" },
+    { title: "Taxa de Sucesso (30d)", value: `${stats.successRate}%`, icon: Percent, color: "text-teal-500" },
   ];
 
   return (

@@ -14,15 +14,15 @@ interface HabitCompletionPieChartProps {
 
 const chartConfig = {
   completed: {
-    label: "Completed",
+    label: "Concluídos",
     color: "hsl(var(--success))",
   },
   missed: {
-    label: "Missed",
+    label: "Perdidos",
     color: "hsl(var(--destructive))",
   },
   nodata: {
-    label: "No Data",
+    label: "Sem Dados",
     color: "hsl(var(--muted))",
   }
 } as const;
@@ -31,20 +31,20 @@ export function HabitCompletionPieChart({ habits, habitLogs, isLoading }: HabitC
   const data = getPieChartData(habits, habitLogs, 7); // Last 7 days for daily habits
 
   if (isLoading) {
-    return <Card><CardHeader><CardTitle>Daily Habit Completion (Last 7 Days)</CardTitle><CardDescription>Loading chart data...</CardDescription></CardHeader><CardContent className="flex justify-center items-center h-[250px]"><Skeleton className="h-[200px] w-[200px] rounded-full" /></CardContent></Card>;
+    return <Card><CardHeader><CardTitle>Conclusão de Hábitos Diários (Últimos 7 Dias)</CardTitle><CardDescription>Carregando dados do gráfico...</CardDescription></CardHeader><CardContent className="flex justify-center items-center h-[250px]"><Skeleton className="h-[200px] w-[200px] rounded-full" /></CardContent></Card>;
   }
   
   const total = data.reduce((acc, curr) => acc + curr.value, 0);
 
-  if (total === 0 || (data.length === 1 && (data[0].name === "No Daily Habits" || data[0].name === "No Activity"))) {
+  if (total === 0 || (data.length === 1 && (data[0].name === "Sem Hábitos Diários" || data[0].name === "Sem Atividade"))) { // Adjusted for translated keys from getPieChartData
      return (
       <Card className="shadow-sm hover:shadow-md transition-shadow">
         <CardHeader>
-          <CardTitle>Daily Habit Completion (Last 7 Days)</CardTitle>
-          <CardDescription>{data[0]?.name === "No Daily Habits" ? "Add some daily habits to see progress." : "No activity recorded for daily habits in the last 7 days."}</CardDescription>
+          <CardTitle>Conclusão de Hábitos Diários (Últimos 7 Dias)</CardTitle>
+          <CardDescription>{data[0]?.name === "Sem Hábitos Diários" ? "Adicione alguns hábitos diários para ver o progresso." : "Nenhuma atividade registrada para hábitos diários nos últimos 7 dias."}</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center h-[250px]">
-          <p className="text-muted-foreground">No data to display</p>
+          <p className="text-muted-foreground">Sem dados para exibir</p>
         </CardContent>
       </Card>
     );
@@ -54,8 +54,8 @@ export function HabitCompletionPieChart({ habits, habitLogs, isLoading }: HabitC
   return (
     <Card className="flex flex-col shadow-sm hover:shadow-md transition-shadow">
       <CardHeader>
-        <CardTitle>Daily Habit Completion (Last 7 Days)</CardTitle>
-        <CardDescription>Ratio of completed vs. missed daily habits.</CardDescription>
+        <CardTitle>Conclusão de Hábitos Diários (Últimos 7 Dias)</CardTitle>
+        <CardDescription>Proporção de hábitos diários concluídos vs. perdidos.</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer

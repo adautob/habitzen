@@ -25,9 +25,9 @@ export default function HabitZenPage() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">My Habit Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Meu Painel de Hábitos</h2>
           <p className="text-muted-foreground">
-            Track your progress and build lasting habits.
+            Acompanhe seu progresso e construa hábitos duradouros.
           </p>
         </div>
         <AddHabitDialog
@@ -40,7 +40,7 @@ export default function HabitZenPage() {
           }}
           triggerButton={
              <Button size="lg" className="shadow-md hover:shadow-lg transition-shadow">
-                <PlusCircle className="mr-2 h-5 w-5" /> Add New Habit
+                <PlusCircle className="mr-2 h-5 w-5" /> Adicionar Novo Hábito
               </Button>
           }
         />
@@ -50,11 +50,11 @@ export default function HabitZenPage() {
         <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
-            Overview
+            Visão Geral
           </TabsTrigger>
           <TabsTrigger value="habits" className="flex items-center gap-2">
             <ListChecks className="h-4 w-4" />
-            My Habits
+            Meus Hábitos
           </TabsTrigger>
         </TabsList>
 

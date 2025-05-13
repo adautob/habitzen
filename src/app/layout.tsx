@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'HabitZen - Master Your Habits',
-  description: 'Track and build positive habits with HabitZen.',
+  title: 'HabitZen - Domine Seus Hábitos',
+  description: 'Acompanhe e construa hábitos positivos com o HabitZen.',
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background font-sans`}>
         <div className="relative flex min-h-screen flex-col">
           <AppHeader />

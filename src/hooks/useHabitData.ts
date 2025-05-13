@@ -28,7 +28,7 @@ export function useHabitData() {
       setHabits(fetchedHabits.sort((a, b) => b.createdAt - a.createdAt));
     } catch (error) {
       console.error("Failed to fetch habits:", error);
-      toast({ title: "Error", description: "Could not load habits.", variant: "destructive" });
+      toast({ title: "Erro", description: "Não foi possível carregar os hábitos.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -41,7 +41,7 @@ export function useHabitData() {
       setHabitLogs(fetchedLogs);
     } catch (error) {
       console.error("Failed to fetch habit logs:", error);
-      toast({ title: "Error", description: "Could not load habit logs.", variant: "destructive" });
+      toast({ title: "Erro", description: "Não foi possível carregar os registros de hábitos.", variant: "destructive" });
     } finally {
       // setIsLoading(false);
     }
@@ -61,18 +61,18 @@ export function useHabitData() {
     };
     try {
       await dbAddHabit(newHabit);
-      toast({ title: "Success", description: "Habit created successfully." });
+      toast({ title: "Sucesso", description: "Hábito criado com sucesso." });
       await refreshHabits();
     } catch (error) {
       console.error("Failed to create habit:", error);
-      toast({ title: "Error", description: "Could not create habit.", variant: "destructive" });
+      toast({ title: "Erro", description: "Não foi possível criar o hábito.", variant: "destructive" });
     }
   };
 
   const editHabit = async (habitId: string, formData: HabitFormData) => {
     const existingHabit = habits.find(h => h.id === habitId);
     if (!existingHabit) {
-      toast({ title: "Error", description: "Habit not found.", variant: "destructive" });
+      toast({ title: "Erro", description: "Hábito não encontrado.", variant: "destructive" });
       return;
     }
     const updatedHabit: Habit = {
@@ -82,23 +82,23 @@ export function useHabitData() {
     };
     try {
       await dbUpdateHabit(updatedHabit);
-      toast({ title: "Success", description: "Habit updated successfully." });
+      toast({ title: "Sucesso", description: "Hábito atualizado com sucesso." });
       await refreshHabits();
     } catch (error) {
       console.error("Failed to update habit:", error);
-      toast({ title: "Error", description: "Could not update habit.", variant: "destructive" });
+      toast({ title: "Erro", description: "Não foi possível atualizar o hábito.", variant: "destructive" });
     }
   };
 
   const removeHabit = async (id: string) => {
     try {
       await dbDeleteHabit(id);
-      toast({ title: "Success", description: "Habit deleted successfully." });
+      toast({ title: "Sucesso", description: "Hábito excluído com sucesso." });
       await refreshHabits();
       await refreshHabitLogs(); // Logs for this habit are also deleted
     } catch (error) {
       console.error("Failed to delete habit:", error);
-      toast({ title: "Error", description: "Could not delete habit.", variant: "destructive" });
+      toast({ title: "Erro", description: "Não foi possível excluir o hábito.", variant: "destructive" });
     }
   };
 
@@ -110,15 +110,15 @@ export function useHabitData() {
       if (existingLog) {
         // If user clicks again, uncomplete it
         await dbDeleteHabitLog(existingLog.id);
-        toast({ title: "Habit Unmarked", description: "Habit marked as not complete for today." });
+        toast({ title: "Hábito Desmarcado", description: "Hábito marcado como não concluído para hoje." });
       } else {
         await dbLogHabitCompletion(habitId, dateString);
-        toast({ title: "Great job!", description: "Habit marked as complete.", className: "bg-success text-success-foreground" });
+        toast({ title: "Ótimo trabalho!", description: "Hábito marcado como concluído.", className: "bg-success text-success-foreground" });
       }
       await refreshHabitLogs();
     } catch (error) {
       console.error("Failed to log habit completion:", error);
-      toast({ title: "Error", description: "Could not update habit completion.", variant: "destructive" });
+      toast({ title: "Erro", description: "Não foi possível atualizar a conclusão do hábito.", variant: "destructive" });
     }
   };
 

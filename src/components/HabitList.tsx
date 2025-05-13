@@ -35,16 +35,16 @@ export function HabitList({
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
         <Image 
-          src="https://picsum.photos/seed/habitzen-empty/300/200" // Replace with a relevant image
-          alt="No habits yet" 
+          src="https://picsum.photos/seed/habitzen-empty/300/200" 
+          alt="Nenhum hábito ainda" 
           width={200} 
           height={133}
           className="mb-4 rounded-md"
-          data-ai-hint="zen garden illustration" 
+          data-ai-hint="jardim zen ilustração" 
         />
-        <h3 className="text-xl font-semibold">No Habits Yet!</h3>
+        <h3 className="text-xl font-semibold">Nenhum Hábito Ainda!</h3>
         <p className="text-muted-foreground">
-          Start building positive routines by adding your first habit.
+          Comece a construir rotinas positivas adicionando seu primeiro hábito.
         </p>
       </div>
     );
@@ -56,7 +56,7 @@ export function HabitList({
         <HabitItem
           key={habit.id}
           habit={habit}
-          isCompletedToday={isHabitCompletedToday(habit.id)}
+          isHabitCompletedToday={isHabitCompletedToday(habit.id)}
           onComplete={onCompleteHabit}
           onEdit={onEditHabit}
           onDelete={onDeleteHabit}

@@ -2,26 +2,26 @@ import type { HabitDifficulty, HabitFrequency } from "@/types";
 
 export const HABIT_CATEGORIES: string[] = [
   "Fitness",
-  "Health",
-  "Work",
-  "Learning",
-  "Finance",
+  "Saúde",
+  "Trabalho",
+  "Aprendizado",
+  "Finanças",
   "Hobbies",
-  "Personal Growth",
-  "Home",
+  "Crescimento Pessoal",
+  "Casa",
   "Social",
-  "Other",
+  "Outro",
 ];
 
 export const HABIT_DIFFICULTIES: { label: string; value: HabitDifficulty }[] = [
-  { label: "Easy (1 Star)", value: 1 },
-  { label: "Medium (2 Stars)", value: 2 },
-  { label: "Hard (3 Stars)", value: 3 },
+  { label: "Fácil (1 Estrela)", value: 1 },
+  { label: "Médio (2 Estrelas)", value: 2 },
+  { label: "Difícil (3 Estrelas)", value: 3 },
 ];
 
 export const HABIT_FREQUENCIES: { label: string; value: HabitFrequency }[] = [
-  { label: "Daily", value: "daily" },
-  { label: "Weekly", value: "weekly" },
+  { label: "Diário", value: "daily" },
+  { label: "Semanal", value: "weekly" },
 ];
 
 export const DB_NAME = "HabitZenDB";

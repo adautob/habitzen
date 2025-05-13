@@ -11,15 +11,15 @@ export function AppHeader() {
     try {
       await exportData();
       toast({
-        title: "Data Exported",
-        description: "Your habit data has been successfully exported as a JSON file.",
+        title: "Dados Exportados",
+        description: "Seus dados de hábitos foram exportados com sucesso como um arquivo JSON.",
         variant: "default",
       });
     } catch (error) {
       console.error("Export failed:", error);
       toast({
-        title: "Export Failed",
-        description: "There was an error exporting your data. Please try again.",
+        title: "Falha na Exportação",
+        description: "Ocorreu um erro ao exportar seus dados. Por favor, tente novamente.",
         variant: "destructive",
       });
     }
@@ -49,7 +49,7 @@ export function AppHeader() {
         </div>
         <Button variant="outline" size="sm" onClick={handleExportData}>
           <Download className="mr-2 h-4 w-4" />
-          Export Data
+          Exportar Dados
         </Button>
       </div>
     </header>
