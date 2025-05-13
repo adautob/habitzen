@@ -1,11 +1,15 @@
 "use client";
 import type { Habit, HabitLog } from "@/types";
 import { useState, useMemo } from "react";
-import { Calendar } from "@/components/ui/calendar";
-import { Badge } from "@/components/ui/badge";
+import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
+// Import DayProps, Day (as RdpDay), and DayContent (as RdpDayContent) from react-day-picker
+import type { DayProps } from "react-day-picker";
+import { Day as RdpDay, DayContent as RdpDayContent } from "react-day-picker";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, isSameDay } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface CompletionCalendarProps {
   habits: Habit[];
@@ -32,12 +36,11 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
   const modifiers = useMemo(() => {
     const completedDays: Record<string, Date[]> = {};
     habitLogs.forEach(log => {
-      const dateStr = format(new Date(log.date), "yyyy-MM-dd"); // Ensure consistent formatting
+      const dateStr = format(new Date(log.date), "yyyy-MM-dd");
       if (!completedDays[dateStr]) {
         completedDays[dateStr] = [];
       }
-      // Add the actual Date object for react-day-picker
-      completedDays[dateStr].push(new Date(log.date + 'T00:00:00')); // Ensure correct date object without timezone issues for matching
+      completedDays[dateStr].push(new Date(log.date + 'T00:00:00')); 
     });
     
     return {
@@ -48,19 +51,14 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
   }, [habitLogs]);
 
   const modifiersClassNames = {
-    completed: "bg-success/20 text-success-foreground rounded-md",
-    selected: "bg-primary text-primary-foreground",
+    completed: "bg-success/20 text-success-foreground rounded-md", // This will apply to the RdpDay button
+    // selected: "bg-primary text-primary-foreground", // Default DayPicker selection styling is usually sufficient
   };
 
   const selectedDayCompletions = selectedDate 
     ? completedHabitsByDate.get(format(selectedDate, "yyyy-MM-dd")) || [] 
     : [];
 
-  if (isLoading) {
-    // Basic skeleton for calendar, or can be more elaborate
-    return <Card><CardHeader><CardTitle>Completion Calendar</CardTitle></CardHeader><CardContent className="h-[350px] animate-pulse bg-muted rounded-md"></CardContent></Card>;
-  }
-  
   const Footer = () => {
     if (!selectedDate) return <p className="text-sm text-muted-foreground p-2">Select a day to see completed habits.</p>;
     if (selectedDayCompletions.length === 0) return <p className="text-sm text-muted-foreground p-2">No habits completed on {format(selectedDate, "PPP")}.</p>;
@@ -77,6 +75,37 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
     );
   };
 
+  // Custom DayContent component to include dots
+  const CustomDayContentWithDots = (dayContentProps: DayProps) => {
+    const { date } = dayContentProps;
+    const dateString = format(date, "yyyy-MM-dd");
+    // Access completedHabitsByDate from the outer scope
+    const completions = completedHabitsByDate.get(dateString) || [];
+
+    return (
+      // Relative positioning for the dots within the day cell's content
+      <div className="relative w-full h-full flex items-center justify-center">
+        <RdpDayContent {...dayContentProps} /> {/* Renders the default day number */}
+        {completions.length > 0 && (
+          <>
+            <span className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-success pointer-events-none"></span>
+            <span className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-success animate-ping pointer-events-none"></span>
+          </>
+        )}
+      </div>
+    );
+  };
+  
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Completion Calendar</CardTitle></CardHeader>
+        <CardContent className="h-[350px] flex justify-center items-center">
+          <Skeleton className="w-full max-w-xs h-[300px] rounded-md" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow">
@@ -84,7 +113,7 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
         <CardTitle>Completion Calendar</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        <Calendar
+        <ShadcnCalendar
           mode="single"
           selected={selectedDate}
           onSelect={setSelectedDate}
@@ -93,26 +122,31 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
           className="rounded-md border"
           footer={<Footer />}
           components={{
-            Day: ({ date, displayMonth }) => {
+            Day: (dayComponentProps: DayProps) => { // This is our custom Day cell renderer
+              const { date } = dayComponentProps;
               const dateString = format(date, "yyyy-MM-dd");
-              const completionsOnDate = completedHabitsByDate.get(dateString) || [];
-              const isSelected = selectedDate && isSameDay(date, selectedDate);
-              const originalDay = <Calendar.Day date={date} displayMonth={displayMonth} />;
+              const completions = completedHabitsByDate.get(dateString) || [];
 
-              if (completionsOnDate.length > 0) {
+              // BaseDayElement uses the default RdpDay (button) but with our CustomDayContentWithDots
+              const BaseDayElementWithDots = (
+                <RdpDay
+                  {...dayComponentProps}
+                  // Pass our custom DayContent component to RdpDay
+                  components={{ DayContent: CustomDayContentWithDots }}
+                />
+              );
+
+              if (completions.length > 0) {
+                // If there are completions, wrap the day cell with a Popover
                 return (
                   <Popover>
                     <PopoverTrigger asChild>
-                      <div className="relative">
-                        {originalDay}
-                        <span className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-success animate-ping"></span>
-                        <span className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-success"></span>
-                      </div>
+                      {BaseDayElementWithDots}
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2 text-sm">
+                    <PopoverContent className="w-auto p-2 text-sm" side="top" align="center">
                       <p className="font-semibold mb-1">Completed on {format(date, "PPP")}:</p>
                       <ul className="list-none space-y-0.5">
-                        {completionsOnDate.map(({ habit }) => (
+                        {completions.map(({ habit }) => (
                           <li key={habit.id} className="text-xs">{habit.name}</li>
                         ))}
                       </ul>
@@ -120,7 +154,8 @@ export function CompletionCalendar({ habits, habitLogs, isLoading }: CompletionC
                   </Popover>
                 );
               }
-              return originalDay;
+              // If no completions, just render the day cell (with dots if any, handled by CustomDayContentWithDots)
+              return BaseDayElementWithDots;
             }
           }}
         />
