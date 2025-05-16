@@ -23,6 +23,7 @@ export default function HabitZenPage() {
     removeHabit,
     completeHabit,
     isHabitCompletedToday,
+    updateLogNotes, // Add this
   } = useHabitData();
 
   return (
@@ -78,12 +79,13 @@ export default function HabitZenPage() {
         <TabsContent value="habits">
           <HabitList
             habits={habits}
-            habitLogs={habitLogs} // Pass habitLogs here
+            habitLogs={habitLogs} 
             isLoading={isLoading}
             isHabitCompletedToday={isHabitCompletedToday}
             onCompleteHabit={completeHabit}
             onEditHabit={editHabit}
             onDeleteHabit={removeHabit}
+            onUpdateLogNotes={updateLogNotes} // Pass this down
           />
         </TabsContent>
          <TabsContent value="achievements">

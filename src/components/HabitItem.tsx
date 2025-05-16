@@ -2,14 +2,16 @@
 "use client";
 import type { Habit, HabitFormData, HabitLog } from "@/types";
 import { useState } from "react";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp, BarChart3 } from "lucide-react";
+import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp, BarChart3, FileText } from "lucide-react";
 import { StarRating } from "@/components/ui/StarRating";
 import { AddHabitDialog } from "./AddHabitDialog";
+import { ViewEditNoteDialog } from "./ViewEditNoteDialog"; 
 import { HabitConsistencyHeatmap } from "./HabitConsistencyHeatmap";
 import {
   AlertDialog,
@@ -24,7 +26,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
-import { cva } from "class-variance-authority";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const HomeIcon = Home;
@@ -72,34 +73,46 @@ function getCategoryIcon(category: string) {
 interface HabitItemProps {
   habit: Habit;
   habitLogs: HabitLog[]; 
-  isCompletedToday: boolean;
+  todayLog: HabitLog | undefined;
   onComplete: (habitId: string, date?: Date, notes?: string) => void;
   onEdit: (habitId: string, data: HabitFormData) => Promise<void>;
   onDelete: (habitId: string) => void;
+  onUpdateLogNotes: (logId: string, notes: string | undefined) => Promise<void>;
 }
 
-export function HabitItem({ habit, habitLogs, isCompletedToday, onComplete, onEdit, onDelete }: HabitItemProps) {
+export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDelete, onUpdateLogNotes }: HabitItemProps) {
   const [isHeatmapOpen, setIsHeatmapOpen] = useState(false);
-  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+  const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false);
+  const [isViewEditNoteDialogOpen, setIsViewEditNoteDialogOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState("");
 
   const CategoryIcon = getCategoryIcon(habit.category);
   const frequencyText = habit.frequency === "daily" ? "Diário" : "Semanal";
+  const isCompletedToday = !!todayLog;
 
   const handleCompleteClick = () => {
     if (isCompletedToday) {
       onComplete(habit.id); // Uncomplete
     } else {
       setCurrentNote(""); // Reset note for new completion
-      setIsNoteDialogOpen(true); // Open note dialog
+      setIsAddNoteDialogOpen(true); // Open add note dialog
     }
   };
 
-  const handleSaveCompletion = (withNote: boolean) => {
+  const handleSaveCompletionWithNote = (withNote: boolean) => {
     onComplete(habit.id, new Date(), withNote ? currentNote : undefined);
-    setIsNoteDialogOpen(false);
+    setIsAddNoteDialogOpen(false);
     setCurrentNote("");
   };
+
+  const handleSaveEditedNote = async (logId: string, notes: string) => {
+    await onUpdateLogNotes(logId, notes);
+  };
+  
+  const handleDeleteNote = async (logId: string) => {
+    await onUpdateLogNotes(logId, undefined);
+  };
+
 
   return (
     <>
@@ -117,6 +130,18 @@ export function HabitItem({ habit, habitLogs, isCompletedToday, onComplete, onEd
               </CardDescription>
             </div>
             <div className="flex items-center space-x-0.5">
+               {isCompletedToday && todayLog?.notes && (
+                 <TooltipProvider delayDuration={100}>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label="Ver/Editar Nota" onClick={() => setIsViewEditNoteDialogOpen(true)}>
+                          <FileText className="h-4 w-4 text-blue-500" />
+                        </Button>
+                     </TooltipTrigger>
+                     <TooltipContent side="top"><p>Ver/Editar Nota</p></TooltipContent>
+                   </Tooltip>
+                 </TooltipProvider>
+               )}
                <Dialog open={isHeatmapOpen} onOpenChange={setIsHeatmapOpen}>
                   <TooltipProvider delayDuration={100}>
                       <Tooltip>
@@ -202,7 +227,8 @@ export function HabitItem({ habit, habitLogs, isCompletedToday, onComplete, onEd
         </CardFooter>
       </Card>
 
-      <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+      {/* Dialog for adding note on new completion */}
+      <Dialog open={isAddNoteDialogOpen} onOpenChange={setIsAddNoteDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Adicionar Nota (Opcional)</DialogTitle>
@@ -224,36 +250,33 @@ export function HabitItem({ habit, habitLogs, isCompletedToday, onComplete, onEd
               />
             </div>
           </div>
-          <DialogFooter className="sm:justify-between gap-2">
-             <Button variant="outline" onClick={() => setIsNoteDialogOpen(false)}>
+          <DialogFooter className="sm:justify-between gap-2 flex-col sm:flex-row">
+             <Button variant="outline" onClick={() => setIsAddNoteDialogOpen(false)}>
               Cancelar
             </Button>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => handleSaveCompletion(false)}>
+              <Button variant="secondary" onClick={() => handleSaveCompletionWithNote(false)}>
                 Concluir sem Nota
               </Button>
-              <Button onClick={() => handleSaveCompletion(true)}>
+              <Button onClick={() => handleSaveCompletionWithNote(true)}>
                 Salvar e Concluir
               </Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog for viewing/editing existing note */}
+      {todayLog && (
+        <ViewEditNoteDialog
+          habitLog={todayLog}
+          habitName={habit.name}
+          isOpen={isViewEditNoteDialogOpen}
+          onOpenChange={setIsViewEditNoteDialogOpen}
+          onSaveNote={handleSaveEditedNote}
+          onDeleteNote={handleDeleteNote}
+        />
+      )}
     </>
   );
 }
-
-
-const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-      },
-    },
-    defaultVariants: { variant: "default" },
-  }
-);
-

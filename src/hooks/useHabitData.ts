@@ -10,6 +10,7 @@ import {
   logHabitCompletion as dbLogHabitCompletion,
   getHabitLogs as dbGetHabitLogs,
   getHabitLogByHabitIdAndDate as dbGetHabitLogByHabitIdAndDate,
+  updateHabitLog as dbUpdateHabitLog,
   deleteHabitLog as dbDeleteHabitLog,
 } from "@/lib/db";
 import { POINTS_PER_DIFFICULTY } from "@/lib/constants";
@@ -142,15 +143,32 @@ export function useHabitData() {
     }
   };
 
-  const isHabitCompletedToday = useCallback((habitId: string, date: Date = new Date()): boolean => {
+  const isHabitCompletedToday = useCallback((habitId: string, date: Date = new Date()): HabitLog | undefined => {
     const dateString = format(date, "yyyy-MM-dd");
-    return habitLogs.some(log => log.habitId === habitId && log.date === dateString);
+    return habitLogs.find(log => log.habitId === habitId && log.date === dateString);
   }, [habitLogs]);
   
   const getCompletionsForHabitOnDate = useCallback((habitId: string, targetDate: Date): HabitLog[] => {
     const dateString = format(targetDate, "yyyy-MM-dd");
     return habitLogs.filter(log => log.habitId === habitId && log.date === dateString);
   }, [habitLogs]);
+
+  const updateLogNotes = async (logId: string, newNotes: string | undefined) => {
+    try {
+      const logToUpdate = habitLogs.find(log => log.id === logId);
+      if (!logToUpdate) {
+        toast({ title: "Erro", description: "Registro de hábito não encontrado.", variant: "destructive" });
+        return;
+      }
+      const updatedLog = { ...logToUpdate, notes: newNotes };
+      await dbUpdateHabitLog(updatedLog);
+      toast({ title: "Sucesso", description: "Nota atualizada com sucesso." });
+      await refreshHabitLogs();
+    } catch (error) {
+      console.error("Failed to update log notes:", error);
+      toast({ title: "Erro", description: "Não foi possível atualizar a nota.", variant: "destructive" });
+    }
+  };
 
 
   return {
@@ -164,8 +182,8 @@ export function useHabitData() {
     completeHabit,
     isHabitCompletedToday,
     getCompletionsForHabitOnDate,
+    updateLogNotes,
     refreshHabits, 
     refreshHabitLogs,
   };
 }
-

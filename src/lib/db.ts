@@ -107,9 +107,7 @@ export const logHabitCompletion = async (habitId: string, date: string, notes?: 
       if (request.error?.name === 'ConstraintError') {
         console.warn(`Hábito ${habitId} já registrado para a data ${date}.`);
         getHabitLogByHabitIdAndDate(habitId, date).then(existingLog => {
-          if (existingLog) { // If it already exists, and we are trying to add notes, update it (or decide on behavior)
-            // For now, let's assume if it's a constraint error, we don't overwrite notes.
-            // A more complex logic might update notes if provided.
+          if (existingLog) {
             resolve(existingLog);
           } else {
             reject(request.error);
@@ -134,7 +132,6 @@ export const getHabitLogByHabitIdAndDate = async (habitId: string, date: string)
   });
 };
 
-
 export const getHabitLogs = async (habitId?: string): Promise<HabitLog[]> => {
   const db = await initDB();
   return new Promise((resolve, reject) => {
@@ -148,6 +145,17 @@ export const getHabitLogs = async (habitId?: string): Promise<HabitLog[]> => {
       request = store.getAll();
     }
     request.onsuccess = () => resolve(request.result as HabitLog[]);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const updateHabitLog = async (log: HabitLog): Promise<string> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(HABIT_LOGS_STORE_NAME, "readwrite");
+    const store = transaction.objectStore(HABIT_LOGS_STORE_NAME);
+    const request = store.put(log);
+    request.onsuccess = () => resolve(request.result as string);
     request.onerror = () => reject(request.error);
   });
 };
@@ -186,4 +194,3 @@ export const exportData = async (): Promise<void> => {
     throw error;
   }
 };
-

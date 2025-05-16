@@ -4,25 +4,28 @@ import type { Habit, HabitFormData, HabitLog } from "@/types";
 import { HabitItem } from "./HabitItem";
 import { Skeleton } from "./ui/skeleton";
 import Image from 'next/image';
+import { format } from "date-fns";
 
 interface HabitListProps {
   habits: Habit[];
-  habitLogs: HabitLog[]; // Added to pass down to HabitItem
+  habitLogs: HabitLog[]; 
   isLoading: boolean;
-  isHabitCompletedToday: (habitId: string) => boolean;
-  onCompleteHabit: (habitId: string) => void;
+  isHabitCompletedToday: (habitId: string, date?: Date) => HabitLog | undefined; // Returns log or undefined
+  onCompleteHabit: (habitId: string, date?: Date, notes?: string) => void;
   onEditHabit: (habitId: string, data: HabitFormData) => Promise<void>;
   onDeleteHabit: (habitId: string) => void;
+  onUpdateLogNotes: (logId: string, notes: string | undefined) => Promise<void>;
 }
 
 export function HabitList({
   habits,
-  habitLogs, // Destructure here
+  habitLogs, 
   isLoading,
   isHabitCompletedToday,
   onCompleteHabit,
   onEditHabit,
   onDeleteHabit,
+  onUpdateLogNotes,
 }: HabitListProps) {
   if (isLoading) {
     return (
@@ -55,17 +58,21 @@ export function HabitList({
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {habits.map((habit) => (
-        <HabitItem
-          key={habit.id}
-          habit={habit}
-          habitLogs={habitLogs.filter(log => log.habitId === habit.id)} // Pass filtered logs for this specific habit
-          isHabitCompletedToday={isHabitCompletedToday(habit.id)}
-          onComplete={onCompleteHabit}
-          onEdit={onEditHabit}
-          onDelete={onDeleteHabit}
-        />
-      ))}
+      {habits.map((habit) => {
+        const todayLog = isHabitCompletedToday(habit.id);
+        return (
+          <HabitItem
+            key={habit.id}
+            habit={habit}
+            habitLogs={habitLogs.filter(log => log.habitId === habit.id)} 
+            todayLog={todayLog}
+            onComplete={onCompleteHabit}
+            onEdit={onEditHabit}
+            onDelete={onDeleteHabit}
+            onUpdateLogNotes={onUpdateLogNotes}
+          />
+        );
+      })}
     </div>
   );
 }
