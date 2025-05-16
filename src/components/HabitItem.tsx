@@ -1,17 +1,17 @@
 
 "use client";
 import type { Habit, HabitFormData, HabitLog } from "@/types";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp, BarChart3, FileText } from "lucide-react";
+import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp, BarChart3, FileText, SmilePlus } from "lucide-react";
 import { StarRating } from "@/components/ui/StarRating";
 import { AddHabitDialog } from "./AddHabitDialog";
-import { ViewEditNoteDialog } from "./ViewEditNoteDialog"; 
+import { ViewEditNoteDialog } from "./ViewEditNoteDialog";
 import { HabitConsistencyHeatmap } from "./HabitConsistencyHeatmap";
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import {
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 const HomeIcon = Home;
 const UsersIcon = Users;
@@ -36,7 +37,7 @@ const HeartIcon = Heart;
 const BriefcaseIcon = Briefcase;
 const BookOpenIcon = BookOpen;
 const DollarSignIcon = DollarSign;
-const SmileIcon = Smile;
+const SmileIcon = Smile; // Lucide's Smile icon
 const TrendingUpIcon = TrendingUp;
 
 const categoryIcons: Record<string, React.ElementType> = {
@@ -66,13 +67,13 @@ function getCategoryIcon(category: string) {
   if (normalizedCategory.includes("saude") || normalizedCategory.includes("saúde") || normalizedCategory.includes("medita")) return HeartIcon;
   if (normalizedCategory.includes("trabalho") || normalizedCategory.includes("carreira")) return BriefcaseIcon;
   if (normalizedCategory.includes("aprender") || normalizedCategory.includes("estudar") || normalizedCategory.includes("livro")) return BookOpenIcon;
-  
+
   return categoryIcons["Outro"];
 }
 
 interface HabitItemProps {
   habit: Habit;
-  habitLogs: HabitLog[]; 
+  habitLogs: HabitLog[];
   todayLog: HabitLog | undefined;
   onComplete: (habitId: string, date?: Date, notes?: string) => void;
   onEdit: (habitId: string, data: HabitFormData) => Promise<void>;
@@ -80,11 +81,16 @@ interface HabitItemProps {
   onUpdateLogNotes: (logId: string, notes: string | undefined) => Promise<void>;
 }
 
+const commonEmojis = ["😊", "👍", "🎉", "💪", "🚀", "💡", "🤔", "😂", "🙏", "❤️", "🔥", "🌟"];
+
 export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDelete, onUpdateLogNotes }: HabitItemProps) {
   const [isHeatmapOpen, setIsHeatmapOpen] = useState(false);
   const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false);
   const [isViewEditNoteDialogOpen, setIsViewEditNoteDialogOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState("");
+  const [addNoteEmojiPickerOpen, setAddNoteEmojiPickerOpen] = useState(false);
+  const addNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
+
 
   const CategoryIcon = getCategoryIcon(habit.category);
   const frequencyText = habit.frequency === "daily" ? "Diário" : "Semanal";
@@ -108,9 +114,27 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
   const handleSaveEditedNote = async (logId: string, notes: string) => {
     await onUpdateLogNotes(logId, notes);
   };
-  
+
   const handleDeleteNote = async (logId: string) => {
     await onUpdateLogNotes(logId, undefined);
+  };
+
+  const handleAddNoteEmojiSelect = (emoji: string) => {
+    if (addNoteTextareaRef.current) {
+      const textarea = addNoteTextareaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = currentNote;
+      const newText = text.substring(0, start) + emoji + text.substring(end);
+      setCurrentNote(newText);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+      });
+    } else {
+      setCurrentNote(prev => prev + emoji);
+    }
+    setAddNoteEmojiPickerOpen(false);
   };
 
 
@@ -241,13 +265,44 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
               <Label htmlFor="habit-note" className="sr-only">
                 Nota
               </Label>
-              <Textarea
-                id="habit-note"
-                value={currentNote}
-                onChange={(e) => setCurrentNote(e.target.value)}
-                placeholder="Ex: Corri 5km hoje, me senti ótimo!"
-                rows={3}
-              />
+              <div className="relative">
+                <Textarea
+                  id="habit-note"
+                  ref={addNoteTextareaRef}
+                  value={currentNote}
+                  onChange={(e) => setCurrentNote(e.target.value)}
+                  placeholder="Ex: Corri 5km hoje, me senti ótimo!"
+                  rows={3}
+                  className="pr-10" // Padding for the emoji button
+                />
+                <Popover open={addNoteEmojiPickerOpen} onOpenChange={setAddNoteEmojiPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      aria-label="Adicionar emoji"
+                    >
+                      <SmilePlus className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2">
+                    <div className="flex flex-wrap gap-1 max-w-[160px]">
+                      {commonEmojis.map((emoji) => (
+                        <Button
+                          key={emoji}
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleAddNoteEmojiSelect(emoji)}
+                          className="text-lg h-8 w-8"
+                        >
+                          {emoji}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
           <DialogFooter className="sm:justify-between gap-2 flex-col sm:flex-row">
@@ -280,3 +335,4 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
     </>
   );
 }
+

@@ -1,6 +1,6 @@
 
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { HabitLog } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { SmilePlus } from "lucide-react";
 
 interface ViewEditNoteDialogProps {
   habitLog: HabitLog | null;
@@ -23,6 +25,8 @@ interface ViewEditNoteDialogProps {
   onSaveNote: (logId: string, notes: string) => Promise<void>;
   onDeleteNote: (logId: string) => Promise<void>;
 }
+
+const commonEmojis = ["😊", "👍", "🎉", "💪", "🚀", "💡", "🤔", "😂", "🙏", "❤️", "🔥", "🌟"];
 
 export function ViewEditNoteDialog({
   habitLog,
@@ -34,6 +38,8 @@ export function ViewEditNoteDialog({
 }: ViewEditNoteDialogProps) {
   const [noteText, setNoteText] = useState("");
   const { toast } = useToast();
+  const editNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
 
   useEffect(() => {
     if (habitLog && habitLog.notes) {
@@ -41,7 +47,7 @@ export function ViewEditNoteDialog({
     } else {
       setNoteText("");
     }
-  }, [habitLog]);
+  }, [habitLog, isOpen]); // Re-evaluate on isOpen to reset if dialog reopens for different log
 
   if (!habitLog) return null;
 
@@ -59,6 +65,25 @@ export function ViewEditNoteDialog({
     onOpenChange(false);
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    if (editNoteTextareaRef.current) {
+      const textarea = editNoteTextareaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = noteText;
+      const newText = text.substring(0, start) + emoji + text.substring(end);
+      setNoteText(newText);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+      });
+    } else {
+      setNoteText(prev => prev + emoji);
+    }
+    setEmojiPickerOpen(false);
+  };
+
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -73,14 +98,44 @@ export function ViewEditNoteDialog({
             <Label htmlFor="view-edit-note" className="sr-only">
               Nota
             </Label>
-            <Textarea
-              id="view-edit-note"
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Adicione sua nota aqui..."
-              rows={4}
-              className="resize-none"
-            />
+            <div className="relative">
+              <Textarea
+                id="view-edit-note"
+                ref={editNoteTextareaRef}
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Adicione sua nota aqui..."
+                rows={4}
+                className="resize-none pr-10" // Padding for the emoji button
+              />
+              <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    aria-label="Adicionar emoji"
+                  >
+                    <SmilePlus className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-2">
+                  <div className="flex flex-wrap gap-1 max-w-[160px]">
+                    {commonEmojis.map((emoji) => (
+                      <Button
+                        key={emoji}
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEmojiSelect(emoji)}
+                        className="text-lg h-8 w-8"
+                      >
+                        {emoji}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
         <DialogFooter className="justify-between flex-col sm:flex-row gap-2">
@@ -88,10 +143,10 @@ export function ViewEditNoteDialog({
             Fechar
           </Button>
           <div className="flex gap-2">
-            <Button variant="destructive" onClick={handleDelete} disabled={!habitLog.notes}>
+            <Button variant="destructive" onClick={handleDelete} disabled={!habitLog.notes && !noteText.trim()}>
               Excluir Nota
             </Button>
-            <Button onClick={handleSave} disabled={noteText === (habitLog.notes || "") || !noteText.trim()}>
+            <Button onClick={handleSave} disabled={noteText === (habitLog.notes || "") || (!noteText.trim() && !!habitLog.notes)}>
               Salvar Alterações
             </Button>
           </div>
@@ -100,3 +155,4 @@ export function ViewEditNoteDialog({
     </Dialog>
   );
 }
+
