@@ -78,6 +78,7 @@ export default function HabitZenPage() {
         <TabsContent value="habits">
           <HabitList
             habits={habits}
+            habitLogs={habitLogs} // Pass habitLogs here
             isLoading={isLoading}
             isHabitCompletedToday={isHabitCompletedToday}
             onCompleteHabit={completeHabit}

@@ -1,11 +1,13 @@
+
 "use client";
-import type { Habit, HabitFormData } from "@/types";
+import type { Habit, HabitFormData, HabitLog } from "@/types";
 import { HabitItem } from "./HabitItem";
 import { Skeleton } from "./ui/skeleton";
 import Image from 'next/image';
 
 interface HabitListProps {
   habits: Habit[];
+  habitLogs: HabitLog[]; // Added to pass down to HabitItem
   isLoading: boolean;
   isHabitCompletedToday: (habitId: string) => boolean;
   onCompleteHabit: (habitId: string) => void;
@@ -15,6 +17,7 @@ interface HabitListProps {
 
 export function HabitList({
   habits,
+  habitLogs, // Destructure here
   isLoading,
   isHabitCompletedToday,
   onCompleteHabit,
@@ -35,7 +38,7 @@ export function HabitList({
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
         <Image 
-          src="https://picsum.photos/seed/habitzen-empty/300/200" 
+          src="https://placehold.co/300x200.png" 
           alt="Nenhum hábito ainda" 
           width={200} 
           height={133}
@@ -56,6 +59,7 @@ export function HabitList({
         <HabitItem
           key={habit.id}
           habit={habit}
+          habitLogs={habitLogs.filter(log => log.habitId === habit.id)} // Pass filtered logs for this specific habit
           isHabitCompletedToday={isHabitCompletedToday(habit.id)}
           onComplete={onCompleteHabit}
           onEdit={onEditHabit}

@@ -1,6 +1,7 @@
 
 import type { Habit, HabitLog, Medal, MedalDefinition } from "@/types";
-import { differenceInCalendarDays, eachDayOfInterval, format, subDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, getWeek, getMonth, getYear, subWeeks, subMonths } from "date-fns";
+import { differenceInCalendarDays, eachDayOfInterval, format, subDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, getWeek, getMonth, getYear, subWeeks, subMonths, endOfDay, startOfDay, eachWeekOfInterval,getDay } from "date-fns";
+import { ptBR } from 'date-fns/locale';
 import { MEDAL_DEFINITIONS } from "./medalsData";
 
 export function calculatePoints(logs: HabitLog[], habits: Habit[]): number {
@@ -117,12 +118,9 @@ export function calculateLongestStreak(habit: Habit, logs: HabitLog[]): number {
         if (sortedLogDates.length === 0) return 0;
         
         const uniqueWeeksCompleted = Array.from(new Set(
-          sortedLogDates.map(date => `${getYear(date)}-${getWeek(date)}`)
+          sortedLogDates.map(date => `${getYear(date)}-${getWeek(date, { weekStartsOn: 1 })}`)
         )).map(weekStr => {
           const [year, weekNum] = weekStr.split('-').map(Number);
-          // Get the first day of that week to represent the week.
-          // This is a bit tricky because getWeek can be ambiguous with startOfWeek.
-          // A simpler way is to just sort these unique week strings.
           return { year, weekNum, sortKey: year * 100 + weekNum };
         }).sort((a,b) => a.sortKey - b.sortKey);
 
@@ -138,16 +136,16 @@ export function calculateLongestStreak(habit: Habit, logs: HabitLog[]): number {
             const prevWeek = uniqueWeeksCompleted[i-1];
             const currentWeek = uniqueWeeksCompleted[i];
             
-            // Check if currentWeek is exactly one week after prevWeek
             let expectedYear = prevWeek.year;
             let expectedWeekNum = prevWeek.weekNum + 1;
-            if (expectedWeekNum > 52) { // Approximation, real week counting is complex
-                // This needs a more robust week calculation if spanning year ends
-                const dateFromPrevWeek = new Date(prevWeek.year, 0, (prevWeek.weekNum -1) * 7 +1); // Approx date in prev week
-                const nextWeekDate = startOfWeek(subDays(dateFromPrevWeek, -7), {weekStartsOn:1});
-                expectedYear = getYear(nextWeekDate);
-                expectedWeekNum = getWeek(nextWeekDate);
-            }
+            
+            // Handle year transition for week numbers
+            const dateInPrevWeek = startOfWeek(new Date(prevWeek.year, 0, (prevWeek.weekNum - 1) * 7 + 1), {weekStartsOn:1});
+            const dateInExpectedWeek = startOfWeek(subWeeks(dateInPrevWeek, -1),{weekStartsOn:1});
+
+            expectedYear = getYear(dateInExpectedWeek);
+            expectedWeekNum = getWeek(dateInExpectedWeek, { weekStartsOn: 1 });
+
 
             if (currentWeek.year === expectedYear && currentWeek.weekNum === expectedWeekNum) {
                  currentStreak++;
@@ -325,24 +323,24 @@ export function getAchievedMedals(habits: Habit[], logs: HabitLog[]): Medal[] {
   const now = Date.now();
   return MEDAL_DEFINITIONS.map(def => {
     const isAchieved = checkMedalAchievement(def, habits, logs);
+    // For now, achievedAt is always "now" if criteria met.
+    // A more robust system would store initial achievedAt timestamps in DB or localStorage.
     return {
       ...def,
-      achievedAt: isAchieved ? now : null, // Simplificação: marca como conquistada agora se os critérios são atendidos.
-                                           // Idealmente, isso seria armazenado e apenas atualizado se `achievedAt` for null.
+      achievedAt: isAchieved ? now : null, 
     };
-  }).filter(medal => medal.achievedAt !== null); // Retorna apenas as medalhas conquistadas
+  }).filter(medal => medal.achievedAt !== null);
 }
 
 
 export function getSuccessRateTrend(
   habits: Habit[],
   logs: HabitLog[],
-  numPeriods: number = 4, // e.g., last 4 weeks
+  numPeriods: number = 6, 
   periodType: 'weekly' | 'monthly' = 'weekly'
 ): { name: string; taxaSucesso: number }[] {
   const trendData: { name: string; taxaSucesso: number }[] = [];
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  const today = endOfDay(new Date()); // Use end of today to ensure current week/month calculations are correct
 
   for (let i = 0; i < numPeriods; i++) {
     let periodStart: Date;
@@ -350,22 +348,30 @@ export function getSuccessRateTrend(
     let periodName: string;
 
     if (periodType === 'weekly') {
-      periodEnd = startOfWeek(subWeeks(today, i), { weekStartsOn: 1 });
-      periodEnd = subDays(periodEnd, 1); // End of previous week
-      periodEnd.setHours(23,59,59,999);
-      periodStart = startOfWeek(periodEnd, { weekStartsOn: 1 });
-      periodStart.setHours(0,0,0,0);
-      periodName = `Semana ${getWeek(periodStart, {weekStartsOn: 1})}`;
-      if (i === 0) periodName = "Semana Passada";
-      if (i === 1) periodName = "Semana Retrasada";
+      // Calculate the end of the week `i` weeks ago
+      const targetDateForWeekEnd = subWeeks(today, i);
+      periodEnd = endOfWeek(targetDateForWeekEnd, { weekStartsOn: 1 });
+      // Calculate the start of that same week
+      periodStart = startOfWeek(targetDateForWeekEnd, { weekStartsOn: 1 });
+      
+      periodName = `Semana ${getWeek(periodStart, {weekStartsOn:1, locale: ptBR})}`;
+       if (isWithinInterval(today, {start: periodStart, end: periodEnd})) {
+         periodName = "Esta Semana";
+       } else if (isWithinInterval(subWeeks(today,1), {start: periodStart, end: periodEnd})) {
+         periodName = "Semana Passada";
+       }
 
     } else { // monthly
-      periodEnd = startOfWeek(subMonths(today, i), { weekStartsOn: 1 });
-      periodEnd = subDays(periodEnd, 1);
-      periodEnd.setHours(23,59,59,999);
-      periodStart = startOfWeek(periodEnd, { weekStartsOn: 1 });
-      periodStart.setHours(0,0,0,0);
-      periodName = format(periodStart, "MMM yyyy");
+      const targetDateForMonthEnd = subMonths(today, i);
+      periodEnd = endOfWeek(targetDateForMonthEnd, { weekStartsOn: 1 }); // This line was incorrect, should be endOfMonth
+      periodStart = startOfWeek(targetDateForMonthEnd, { weekStartsOn: 1 }); // This line was incorrect, should be startOfMonth
+      periodName = format(periodStart, "MMM yyyy", {locale: ptBR});
+
+      if (getMonth(today) === getMonth(periodStart) && getYear(today) === getYear(periodStart)) {
+        periodName = "Este Mês";
+      } else if (getMonth(subMonths(today,1)) === getMonth(periodStart) && getYear(subMonths(today,1)) === getYear(periodStart)) {
+        periodName = "Mês Passado";
+      }
     }
     
     let possibleCompletions = 0;
@@ -373,8 +379,11 @@ export function getSuccessRateTrend(
     const daysInPeriod = eachDayOfInterval({start: periodStart, end: periodEnd});
 
     daysInPeriod.forEach(dayInPeriod => {
+       // Ensure we don't count future days in the current period
+       if (dayInPeriod > today) return;
+
        habits.forEach(habit => {
-          if (habit.frequency === 'daily' && new Date(habit.createdAt) <= dayInPeriod) {
+          if (habit.frequency === 'daily' && startOfDay(new Date(habit.createdAt)) <= dayInPeriod) {
              possibleCompletions++;
              if (logs.some(log => log.habitId === habit.id && format(parseISO(log.date), "yyyy-MM-dd") === format(dayInPeriod, "yyyy-MM-dd"))) {
                 actualCompletions++;
@@ -390,3 +399,91 @@ export function getSuccessRateTrend(
   return trendData.reverse(); // Show oldest period first
 }
 
+export interface HeatmapCell {
+  date: string; // YYYY-MM-DD
+  count: number; // Number of completions, 0 or 1 for a daily habit
+  level: 0 | 1 | 2 | 3 | 4; // For coloring intensity (0: no data/activity, 1: low, ..., 4: high) - for now, 0 or 1 (completed)
+}
+
+export interface HeatmapData {
+  weeks: HeatmapCell[][]; // Array of weeks, each week is an array of 7 day cells (or null for padding)
+  monthLabels: { month: string; weekIndex: number }[];
+}
+
+export function getHabitHeatmapData(
+  habitId: string,
+  allLogs: HabitLog[],
+  numWeeks: number = 16 // Approx 4 months
+): HeatmapData {
+  const habitLogs = allLogs.filter(log => log.habitId === habitId && log.date);
+  const logSet = new Set(habitLogs.map(log => format(parseISO(log.date), "yyyy-MM-dd")));
+
+  const today = endOfDay(new Date());
+  const endDate = today;
+  const startDate = startOfWeek(subWeeks(today, numWeeks -1 ), { weekStartsOn: 0 }); // Sunday as start of week for typical heatmaps
+
+  const weeks: HeatmapCell[][] = [];
+  const monthLabels: { month: string; weekIndex: number }[] = [];
+  let currentMonth = -1;
+
+  const allDays = eachDayOfInterval({ start: startDate, end: endDate });
+  
+  let week: HeatmapCell[] = [];
+
+  // Pad the first week if it doesn't start on Sunday
+  const firstDayIndex = getDay(startDate); // 0 for Sunday, 1 for Monday ...
+  for (let i = 0; i < firstDayIndex; i++) {
+    week.push({ date: '', count: 0, level: 0 }); // Placeholder for empty days
+  }
+
+
+  allDays.forEach((day, index) => {
+    const dayDate = startOfDay(day);
+    const dateString = format(dayDate, "yyyy-MM-dd");
+    const dayOfWeek = getDay(dayDate); // 0 for Sunday
+
+    if (dayOfWeek === 0 && week.length > 0 && index > 0) { // Start of a new week (Sunday), and not the very first day
+        // Pad the previous week if it's not full (7 days)
+        while(week.length < 7) {
+            week.push({ date: '', count: 0, level: 0 });
+        }
+        weeks.push(week);
+        week = [];
+    }
+    
+    const month = getMonth(dayDate);
+    if (month !== currentMonth) {
+      currentMonth = month;
+      // Add month label if it's the start of the month or the first week shown
+      if (weeks.length === 0 || getDay(dayDate) < 3 || weeks[weeks.length-1].length < 7) { // Heuristic for placing month labels
+         monthLabels.push({ month: format(dayDate, "MMM", { locale: ptBR }), weekIndex: weeks.length });
+      }
+    }
+
+    const completed = logSet.has(dateString);
+    week.push({
+      date: dateString,
+      count: completed ? 1 : 0,
+      level: completed ? 1 : 0, // Simple completion status for now
+    });
+  });
+
+  // Add the last partially filled week
+  if (week.length > 0) {
+     while(week.length < 7) {
+        week.push({ date: '', count: 0, level: 0 }); // Placeholder for empty days
+    }
+    weeks.push(week);
+  }
+  
+  // Filter monthLabels to avoid too many close labels
+  const filteredMonthLabels = monthLabels.reduce((acc, current, idx) => {
+    if (idx === 0 || (current.weekIndex > acc[acc.length - 1].weekIndex + 1)) { // Show if first or if there's a gap
+      acc.push(current);
+    }
+    return acc;
+  }, [] as { month: string; weekIndex: number }[]);
+
+
+  return { weeks, monthLabels: filteredMonthLabels };
+}

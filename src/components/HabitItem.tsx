@@ -1,11 +1,14 @@
 
 "use client";
-import type { Habit, HabitFormData } from "@/types";
+import type { Habit, HabitFormData, HabitLog } from "@/types";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp, BarChart3 } from "lucide-react";
 import { StarRating } from "@/components/ui/StarRating";
 import { AddHabitDialog } from "./AddHabitDialog";
+import { HabitConsistencyHeatmap } from "./HabitConsistencyHeatmap";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,40 +51,38 @@ const categoryIcons: Record<string, React.ElementType> = {
 
 function getCategoryIcon(category: string) {
   const normalizedCategory = category.toLowerCase();
-  // Direct match with translated keys
   if (categoryIcons[category]) {
     return categoryIcons[category];
   }
-  // Fallback to normalized match if direct translated key isn't found (e.g. custom categories not exactly matching)
   for (const key in categoryIcons) {
     if (key.toLowerCase() === normalizedCategory) {
       return categoryIcons[key];
     }
   }
-  // Try to find a partial match for common terms in Portuguese
   if (normalizedCategory.includes("fit") || normalizedCategory.includes("academia") || normalizedCategory.includes("exercício")) return DumbbellIcon;
-  if (normalizedCategory.includes("saude") || normalizedCategory.includes("saúde") || normalizedCategory.includes("medita")) return HeartIcon; // meditação
+  if (normalizedCategory.includes("saude") || normalizedCategory.includes("saúde") || normalizedCategory.includes("medita")) return HeartIcon;
   if (normalizedCategory.includes("trabalho") || normalizedCategory.includes("carreira")) return BriefcaseIcon;
   if (normalizedCategory.includes("aprender") || normalizedCategory.includes("estudar") || normalizedCategory.includes("livro")) return BookOpenIcon;
   
-  return categoryIcons["Outro"]; // Default icon (using translated "Outro")
+  return categoryIcons["Outro"];
 }
 
 interface HabitItemProps {
   habit: Habit;
+  habitLogs: HabitLog[]; // Logs specific to this habit
   isCompletedToday: boolean;
   onComplete: (habitId: string) => void;
   onEdit: (habitId: string, data: HabitFormData) => Promise<void>;
   onDelete: (habitId: string) => void;
 }
 
-export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelete }: HabitItemProps) {
+export function HabitItem({ habit, habitLogs, isCompletedToday, onComplete, onEdit, onDelete }: HabitItemProps) {
+  const [isHeatmapOpen, setIsHeatmapOpen] = useState(false);
   const CategoryIcon = getCategoryIcon(habit.category);
-
   const frequencyText = habit.frequency === "daily" ? "Diário" : "Semanal";
 
   return (
-    <Card className={cn("transition-all hover:shadow-md", isCompletedToday ? "bg-success/10 border-success" : "")}>
+    <Card className={cn("transition-all hover:shadow-md flex flex-col", isCompletedToday ? "bg-success/10 border-success" : "")}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
@@ -94,7 +95,30 @@ export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelet
                <StarRating rating={habit.difficulty} />
             </CardDescription>
           </div>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-0.5">
+             <Dialog open={isHeatmapOpen} onOpenChange={setIsHeatmapOpen}>
+                <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" aria-label="Ver consistência">
+                                    <BarChart3 className="h-4 w-4" />
+                                </Button>
+                            </DialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                            <p>Ver Consistência</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Consistência de "{habit.name}"</DialogTitle>
+                    </DialogHeader>
+                    <HabitConsistencyHeatmap habit={habit} habitLogs={habitLogs} />
+                </DialogContent>
+            </Dialog>
+
              <AddHabitDialog
                 onSave={async (data) => onEdit(habit.id, data)}
                 existingHabit={habit}
@@ -126,7 +150,7 @@ export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelet
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-grow">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center">
             {habit.frequency === "daily" ? <CalendarDays className="mr-1.5 h-4 w-4" /> : <Repeat className="mr-1.5 h-4 w-4" />}
@@ -146,11 +170,11 @@ export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelet
         >
           {isCompletedToday ? (
             <>
-              <XCircle className="mr-2 h-4 w-4" /> Desmarcar como Concluído
+              <XCircle className="mr-2 h-4 w-4" /> Desmarcar Conclusão
             </>
           ) : (
             <>
-              <CheckCircle className="mr-2 h-4 w-4" /> Marcar como Concluído Hoje
+              <CheckCircle className="mr-2 h-4 w-4" /> Marcar como Concluído
             </>
           )}
         </Button>
@@ -159,7 +183,9 @@ export function HabitItem({ habit, isCompletedToday, onComplete, onEdit, onDelet
   );
 }
 
-// ShadCN buttonVariants for destructive action in AlertDialog
+// Tooltip components (import if not already global or use directly)
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 const buttonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
