@@ -13,7 +13,7 @@ import {
   updateHabitLog as dbUpdateHabitLog,
   deleteHabitLog as dbDeleteHabitLog,
 } from "@/lib/db";
-import { POINTS_PER_DIFFICULTY } from "@/lib/constants";
+import { POINTS_PER_DIFFICULTY, HABIT_COLORS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { generateUUID } from "@/lib/uuid";
@@ -78,7 +78,11 @@ export function useHabitData() {
   const createHabit = async (formData: HabitFormData) => {
     const newHabit: Habit = {
       id: generateUUID(),
-      ...formData,
+      name: formData.name,
+      category: formData.category,
+      difficulty: formData.difficulty,
+      frequency: formData.frequency,
+      color: formData.color === HABIT_COLORS[0].value ? undefined : formData.color,
       createdAt: Date.now(),
       points: POINTS_PER_DIFFICULTY[formData.difficulty],
     };
@@ -100,7 +104,11 @@ export function useHabitData() {
     }
     const updatedHabit: Habit = {
       ...existingHabit,
-      ...formData,
+      name: formData.name,
+      category: formData.category,
+      difficulty: formData.difficulty,
+      frequency: formData.frequency,
+      color: formData.color === HABIT_COLORS[0].value ? undefined : formData.color,
       points: POINTS_PER_DIFFICULTY[formData.difficulty],
     };
     try {

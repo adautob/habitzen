@@ -37,7 +37,7 @@ const HeartIcon = Heart;
 const BriefcaseIcon = Briefcase;
 const BookOpenIcon = BookOpen;
 const DollarSignIcon = DollarSign;
-const SmileIcon = Smile; // Lucide's Smile icon
+const SmileIcon = Smile; 
 const TrendingUpIcon = TrendingUp;
 
 const categoryIcons: Record<string, React.ElementType> = {
@@ -98,10 +98,10 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
 
   const handleCompleteClick = () => {
     if (isCompletedToday) {
-      onComplete(habit.id); // Uncomplete
+      onComplete(habit.id); 
     } else {
-      setCurrentNote(""); // Reset note for new completion
-      setIsAddNoteDialogOpen(true); // Open add note dialog
+      setCurrentNote(""); 
+      setIsAddNoteDialogOpen(true); 
     }
   };
 
@@ -140,8 +140,17 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
 
   return (
     <>
-      <Card className={cn("transition-all hover:shadow-md flex flex-col", isCompletedToday ? "bg-success/10 border-success" : "")}>
-        <CardHeader>
+      <Card className={cn(
+        "transition-all hover:shadow-md flex flex-col relative overflow-hidden", 
+        isCompletedToday ? "bg-success/10 border-success" : ""
+      )}>
+        {habit.color && (
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-1.5"
+            style={{ backgroundColor: habit.color }}
+          />
+        )}
+        <CardHeader className={cn("pl-5", habit.color && "pl-8")}> {/* Adjust padding if color bar is present */}
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="text-xl flex items-center">
@@ -220,7 +229,7 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow">
+        <CardContent className={cn("flex-grow", habit.color && "pl-8")}>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center">
               {habit.frequency === "daily" ? <CalendarDays className="mr-1.5 h-4 w-4" /> : <Repeat className="mr-1.5 h-4 w-4" />}
@@ -232,7 +241,7 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
             </div>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className={cn(habit.color && "pl-8")}>
           <Button
             onClick={handleCompleteClick}
             variant={isCompletedToday ? "secondary" : "default"}
@@ -273,7 +282,7 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
                   onChange={(e) => setCurrentNote(e.target.value)}
                   placeholder="Ex: Corri 5km hoje, me senti ótimo!"
                   rows={3}
-                  className="pr-10" // Padding for the emoji button
+                  className="pr-10" 
                 />
                 <Popover open={addNoteEmojiPickerOpen} onOpenChange={setAddNoteEmojiPickerOpen}>
                   <PopoverTrigger asChild>
@@ -335,4 +344,3 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
     </>
   );
 }
-

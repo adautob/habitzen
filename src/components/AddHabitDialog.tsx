@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,14 +24,16 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { Habit, HabitFormData, HabitDifficulty, HabitFrequency } from "@/types";
-import { HABIT_CATEGORIES, HABIT_DIFFICULTIES, HABIT_FREQUENCIES } from "@/lib/constants";
-import { PlusCircle, Edit } from "lucide-react";
+import { HABIT_CATEGORIES, HABIT_DIFFICULTIES, HABIT_FREQUENCIES, HABIT_COLORS } from "@/lib/constants";
+import { PlusCircle, Edit, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const habitFormSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório").max(100),
   category: z.string().min(1, "A categoria é obrigatória"),
   difficulty: z.coerce.number().min(1).max(3).transform(val => val as HabitDifficulty),
   frequency: z.enum(["daily", "weekly"]),
+  color: z.string().optional(),
 });
 
 interface AddHabitDialogProps {
@@ -50,12 +53,16 @@ export function AddHabitDialog({ onSave, existingHabit, triggerButton }: AddHabi
       category: HABIT_CATEGORIES[0],
       difficulty: 1 as HabitDifficulty,
       frequency: "daily" as HabitFrequency,
+      color: HABIT_COLORS[0].value,
     },
   });
 
   useEffect(() => {
     if (existingHabit) {
-      form.reset(existingHabit);
+      form.reset({
+        ...existingHabit,
+        color: existingHabit.color || HABIT_COLORS[0].value,
+      });
       if (!HABIT_CATEGORIES.includes(existingHabit.category)) {
         setCustomCategory(existingHabit.category);
       } else {
@@ -67,6 +74,7 @@ export function AddHabitDialog({ onSave, existingHabit, triggerButton }: AddHabi
         category: HABIT_CATEGORIES[0],
         difficulty: 1 as HabitDifficulty,
         frequency: "daily" as HabitFrequency,
+        color: HABIT_COLORS[0].value,
       });
       setCustomCategory("");
     }
@@ -76,7 +84,8 @@ export function AddHabitDialog({ onSave, existingHabit, triggerButton }: AddHabi
   const onSubmit = async (data: HabitFormData) => {
     const finalData = {
       ...data,
-      category: data.category === "Outro" && customCategory ? customCategory : data.category, // Compare with translated "Other"
+      category: data.category === "Outro" && customCategory ? customCategory : data.category,
+      color: data.color === HABIT_COLORS[0].value ? undefined : data.color, // Store undefined if default color
     };
     await onSave(finalData, existingHabit?.id);
     setIsOpen(false);
@@ -85,6 +94,7 @@ export function AddHabitDialog({ onSave, existingHabit, triggerButton }: AddHabi
   };
 
   const categoryValue = form.watch("category");
+  const selectedColor = form.watch("color");
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -127,7 +137,7 @@ export function AddHabitDialog({ onSave, existingHabit, triggerButton }: AddHabi
                 </Select>
               )}
             />
-            {categoryValue === "Outro" && ( // Compare with translated "Other"
+            {categoryValue === "Outro" && (
               <Input
                 placeholder="Digite o nome da categoria personalizada"
                 value={customCategory}
@@ -181,6 +191,39 @@ export function AddHabitDialog({ onSave, existingHabit, triggerButton }: AddHabi
               {form.formState.errors.frequency && <p className="text-xs text-destructive">{form.formState.errors.frequency.message}</p>}
             </div>
           </div>
+
+          <div className="grid gap-2">
+            <Label>Cor do Hábito</Label>
+            <Controller
+              name="color"
+              control={form.control}
+              render={({ field }) => (
+                <div className="flex flex-wrap gap-2">
+                  {HABIT_COLORS.map((colorOption) => (
+                    <Button
+                      key={colorOption.name}
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        "h-8 w-8 p-0 rounded-full border-2",
+                        selectedColor === colorOption.value
+                          ? "border-primary ring-2 ring-primary ring-offset-2"
+                          : "border-gray-300"
+                      )}
+                      style={{ backgroundColor: colorOption.value || 'hsl(var(--muted))' }} // Use HSL for custom colors
+                      onClick={() => field.onChange(colorOption.value)}
+                      aria-label={`Selecionar cor ${colorOption.name}`}
+                    >
+                      {selectedColor === colorOption.value && <Check className="h-4 w-4 text-primary-foreground" />}
+                      {colorOption.value === "" && selectedColor !== "" && <span className="text-xs text-muted-foreground">?</span>}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            />
+             {form.formState.errors.color && <p className="text-xs text-destructive">{form.formState.errors.color.message}</p>}
+          </div>
+
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>

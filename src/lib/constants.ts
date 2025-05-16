@@ -1,3 +1,4 @@
+
 import type { HabitDifficulty, HabitFrequency } from "@/types";
 
 export const HABIT_CATEGORIES: string[] = [
@@ -34,3 +35,15 @@ export const POINTS_PER_DIFFICULTY: Record<HabitDifficulty, number> = {
   2: 20,
   3: 30,
 };
+
+export const HABIT_COLORS: { name: string; value: string; tailwindClass: string }[] = [
+  { name: "Padrão", value: "", tailwindClass: "bg-transparent" }, // Ou uma cor padrão sutil
+  { name: "Vermelho", value: "hsl(0 72% 51%)", tailwindClass: "bg-red-500" }, // red-500
+  { name: "Laranja", value: "hsl(25 95% 53%)", tailwindClass: "bg-orange-500" }, // orange-500
+  { name: "Amarelo", value: "hsl(48 96% 53%)", tailwindClass: "bg-yellow-500" }, // yellow-500
+  { name: "Verde", value: "hsl(142 71% 45%)", tailwindClass: "bg-green-500" }, // green-500
+  { name: "Azul", value: "hsl(221 83% 53%)", tailwindClass: "bg-blue-500" }, // blue-500
+  { name: "Roxo", value: "hsl(262 83% 58%)", tailwindClass: "bg-purple-500" }, // purple-500
+  { name: "Rosa", value: "hsl(323 81% 57%)", tailwindClass: "bg-pink-500" }, // pink-500
+];
+
