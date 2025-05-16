@@ -1,5 +1,7 @@
-import type { Habit, HabitLog } from "@/types";
-import { differenceInCalendarDays, eachDayOfInterval, format, subDays, startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
+
+import type { Habit, HabitLog, Medal, MedalDefinition } from "@/types";
+import { differenceInCalendarDays, eachDayOfInterval, format, subDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, getWeek, getMonth, getYear, subWeeks, subMonths } from "date-fns";
+import { MEDAL_DEFINITIONS } from "./medalsData";
 
 export function calculatePoints(logs: HabitLog[], habits: Habit[]): number {
   let totalPoints = 0;
@@ -19,68 +21,62 @@ export function calculateCurrentStreak(habit: Habit, logs: HabitLog[]): number {
 
   const sortedLogs = logs
     .filter(log => log.habitId === habit.id)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .map(log => ({ ...log, dateObj: parseISO(log.date) })) //YYYY-MM-DD
+    .sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
 
   if (sortedLogs.length === 0) return 0;
 
   let streak = 0;
   let currentDate = new Date();
+  currentDate.setHours(0,0,0,0);
 
-  // If last completion was not today or yesterday (for daily), streak is 0
+
   if (habit.frequency === "daily") {
-    const lastLogDate = new Date(sortedLogs[0].date);
+    const lastLogDate = sortedLogs[0].dateObj;
     if (differenceInCalendarDays(currentDate, lastLogDate) > 1) {
       return 0;
     }
-    // If completed today, it counts
-    if (differenceInCalendarDays(currentDate, lastLogDate) === 0) {
-        streak = 1;
-        currentDate = subDays(currentDate, 1); // Start checking from yesterday
-    } else if (differenceInCalendarDays(currentDate, lastLogDate) === 1) {
-        // Completed yesterday
-        streak = 1;
-        currentDate = subDays(currentDate, 1); // Start checking from the day before yesterday
-    }
-
-
-    for (let i = (differenceInCalendarDays(new Date(), lastLogDate) === 0 ? 1:0) ; i < sortedLogs.length; i++) {
-      const logDate = new Date(sortedLogs[i].date);
-      if (differenceInCalendarDays(currentDate, logDate) === 0) {
-        streak++;
-        currentDate = subDays(currentDate, 1);
-      } else {
-        break; // Streak broken
+    if (differenceInCalendarDays(currentDate, lastLogDate) <= 1) {
+      streak = 1;
+      let expectedDate = subDays(lastLogDate, 1);
+      for (let i = 1; i < sortedLogs.length; i++) {
+        if (differenceInCalendarDays(expectedDate, sortedLogs[i].dateObj) === 0) {
+          streak++;
+          expectedDate = subDays(sortedLogs[i].dateObj, 1);
+        } else if (differenceInCalendarDays(expectedDate, sortedLogs[i].dateObj) > 0 ) { 
+          // Gap in logs, streak broken
+          break;
+        }
+        // If sortedLogs[i].date is same as expectedDate, continue. If older, break.
       }
     }
   } else if (habit.frequency === "weekly") {
     // For weekly, check if completed in the current week, then previous week, etc.
-    // This is a simplified version: counts consecutive weeks of completion.
-    let currentWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
+    let currentWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
     
-    // Check if completed this week
     const completedThisWeek = sortedLogs.some(log => 
-        isWithinInterval(new Date(log.date), { start: currentWeekStart, end: endOfWeek(currentDate, { weekStartsOn: 1 }) })
+        isWithinInterval(log.dateObj, { start: currentWeekStart, end: endOfWeek(currentDate, { weekStartsOn: 1 }) })
     );
 
     if (completedThisWeek) {
         streak = 1;
-        let previousWeekStart = startOfWeek(subDays(currentWeekStart, 1), { weekStartsOn: 1 });
-        for (let i = 0; i < sortedLogs.length; i++) { // Check all logs
-            const logDate = new Date(sortedLogs[i].date);
-            if (isWithinInterval(logDate, { start: previousWeekStart, end: endOfWeek(previousWeekStart, {weekStartsOn: 1}) })) {
+        let expectedPreviousWeekStart = startOfWeek(subDays(currentWeekStart, 7), { weekStartsOn: 1 });
+        
+        // Use a set to track weeks already counted to avoid double counting for multiple completions in a week
+        const countedWeeks = new Set<string>();
+        countedWeeks.add(`${getYear(currentWeekStart)}-${getWeek(currentWeekStart)}`);
+
+        for (const log of sortedLogs) {
+            const logWeekStart = startOfWeek(log.dateObj, { weekStartsOn: 1 });
+            const logWeekKey = `${getYear(logWeekStart)}-${getWeek(logWeekStart)}`;
+
+            if (logWeekStart.getTime() === expectedPreviousWeekStart.getTime() && !countedWeeks.has(logWeekKey)) {
                 streak++;
-                previousWeekStart = startOfWeek(subDays(previousWeekStart, 1), { weekStartsOn: 1 });
-                 // Ensure we don't double count for the same week if multiple logs exist
-                i = sortedLogs.findIndex(sl => new Date(sl.date) < previousWeekStart) -1; 
-                if (i < -1) break; // All remaining logs are older
-            } else if (logDate < previousWeekStart) {
-                 // If a log is older than the current week we are checking, and it wasn't in that week, the streak might be broken or this log is for an even older week.
-                 // If no completion found for previousWeekStart, and logDate is older, break.
-                 if (!isWithinInterval(logDate, { start: previousWeekStart, end: endOfWeek(previousWeekStart, { weekStartsOn: 1 }) })) {
-                    const isLogForEarlierWeek = logDate < previousWeekStart;
-                    const wasPreviousWeekSkipped = !sortedLogs.some(sl => isWithinInterval(new Date(sl.date), {start: previousWeekStart, end: endOfWeek(previousWeekStart, {weekStartsOn: 1})}));
-                    if (isLogForEarlierWeek && wasPreviousWeekSkipped) break;
-                 }
+                countedWeeks.add(logWeekKey);
+                expectedPreviousWeekStart = startOfWeek(subDays(expectedPreviousWeekStart, 7), { weekStartsOn: 1 });
+            } else if (logWeekStart < expectedPreviousWeekStart && !countedWeeks.has(logWeekKey)) {
+                // Streak broken if we skip a week
+                break;
             }
         }
     }
@@ -91,109 +87,163 @@ export function calculateCurrentStreak(habit: Habit, logs: HabitLog[]): number {
 export function calculateLongestStreak(habit: Habit, logs: HabitLog[]): number {
     if (!logs || logs.length === 0) return 0;
 
-    const sortedLogs = logs
+    const sortedLogDates = logs
         .filter(log => log.habitId === habit.id)
-        .map(log => new Date(log.date))
+        .map(log => parseISO(log.date)) // YYYY-MM-DD
         .sort((a, b) => a.getTime() - b.getTime());
     
-    if (sortedLogs.length === 0) return 0;
+    if (sortedLogDates.length === 0) return 0;
 
     let longestStreak = 0;
     let currentStreak = 0;
 
     if (habit.frequency === "daily") {
-        if (sortedLogs.length > 0) {
+        if (sortedLogDates.length > 0) {
             currentStreak = 1;
             longestStreak = 1;
         }
-        for (let i = 1; i < sortedLogs.length; i++) {
-            if (differenceInCalendarDays(sortedLogs[i], sortedLogs[i-1]) === 1) {
+        for (let i = 1; i < sortedLogDates.length; i++) {
+            if (differenceInCalendarDays(sortedLogDates[i], sortedLogDates[i-1]) === 1) {
                 currentStreak++;
-            } else {
+            } else if (differenceInCalendarDays(sortedLogDates[i], sortedLogDates[i-1]) > 1) {
                 longestStreak = Math.max(longestStreak, currentStreak);
-                currentStreak = 1; // Reset for the new day
+                currentStreak = 1; // Reset for the new day if there's a gap
             }
+            // If same day, currentStreak doesn't change, longestStreak is updated at end or gap
         }
         longestStreak = Math.max(longestStreak, currentStreak);
 
     } else if (habit.frequency === "weekly") {
-        if (sortedLogs.length > 0) {
+        if (sortedLogDates.length === 0) return 0;
+        
+        const uniqueWeeksCompleted = Array.from(new Set(
+          sortedLogDates.map(date => `${getYear(date)}-${getWeek(date)}`)
+        )).map(weekStr => {
+          const [year, weekNum] = weekStr.split('-').map(Number);
+          // Get the first day of that week to represent the week.
+          // This is a bit tricky because getWeek can be ambiguous with startOfWeek.
+          // A simpler way is to just sort these unique week strings.
+          return { year, weekNum, sortKey: year * 100 + weekNum };
+        }).sort((a,b) => a.sortKey - b.sortKey);
+
+
+        if (uniqueWeeksCompleted.length > 0) {
             currentStreak = 1;
             longestStreak = 1;
+        } else {
+            return 0;
         }
-        let lastCompletionWeekStart = startOfWeek(sortedLogs[0], { weekStartsOn: 1 });
 
-        for (let i = 1; i < sortedLogs.length; i++) {
-            const currentLogDate = sortedLogs[i];
-            const currentLogWeekStart = startOfWeek(currentLogDate, { weekStartsOn: 1 });
+        for (let i = 1; i < uniqueWeeksCompleted.length; i++) {
+            const prevWeek = uniqueWeeksCompleted[i-1];
+            const currentWeek = uniqueWeeksCompleted[i];
             
-            // If it's in the same week as the last completion, skip (counts as one completion for that week)
-            if (currentLogWeekStart.getTime() === lastCompletionWeekStart.getTime()) {
-                continue;
+            // Check if currentWeek is exactly one week after prevWeek
+            let expectedYear = prevWeek.year;
+            let expectedWeekNum = prevWeek.weekNum + 1;
+            if (expectedWeekNum > 52) { // Approximation, real week counting is complex
+                // This needs a more robust week calculation if spanning year ends
+                const dateFromPrevWeek = new Date(prevWeek.year, 0, (prevWeek.weekNum -1) * 7 +1); // Approx date in prev week
+                const nextWeekDate = startOfWeek(subDays(dateFromPrevWeek, -7), {weekStartsOn:1});
+                expectedYear = getYear(nextWeekDate);
+                expectedWeekNum = getWeek(nextWeekDate);
             }
 
-            // If it's the subsequent week
-            const expectedNextWeekStart = startOfWeek(subDays(currentLogWeekStart, 7), { weekStartsOn: 1 });
-            if (lastCompletionWeekStart.getTime() === expectedNextWeekStart.getTime()) {
+            if (currentWeek.year === expectedYear && currentWeek.weekNum === expectedWeekNum) {
                  currentStreak++;
             } else {
                 longestStreak = Math.max(longestStreak, currentStreak);
                 currentStreak = 1; // Reset for this new week's completion
             }
-            lastCompletionWeekStart = currentLogWeekStart;
         }
         longestStreak = Math.max(longestStreak, currentStreak);
     }
     return longestStreak;
 }
 
-export function getOverallStats(habits: Habit[], logs: HabitLog[]) {
-  const totalHabits = habits.length;
-  const totalCompletions = logs.length;
-  
-  let currentOverallStreak = 0;
-  let longestOverallStreak = 0;
-  let totalPoints = calculatePoints(logs, habits);
 
-  if (totalHabits > 0) {
-    // For overall streaks, we might consider the "most consistent" habit or an average.
-    // This is simplified: takes the max streak among daily habits.
-    // A more complex definition would be needed for a true "overall" daily streak.
-    habits.forEach(habit => {
-      if (habit.frequency === 'daily') { // Prioritize daily for overall streak display
-        currentOverallStreak = Math.max(currentOverallStreak, calculateCurrentStreak(habit, logs));
-        longestOverallStreak = Math.max(longestOverallStreak, calculateLongestStreak(habit, logs));
-      }
-    });
-     // If no daily habits, check weekly
-    if (currentOverallStreak === 0 && longestOverallStreak === 0) {
-        habits.forEach(habit => {
-            if (habit.frequency === 'weekly') {
-                currentOverallStreak = Math.max(currentOverallStreak, calculateCurrentStreak(habit, logs));
-                longestOverallStreak = Math.max(longestOverallStreak, calculateLongestStreak(habit, logs));
-            }
-        });
+const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500]; // Points to reach level (index + 1)
+
+export function calculateUserLevelAndPointsToNext(totalPoints: number): {
+  level: number;
+  pointsToNextLevel: number;
+  currentLevelProgress: number;
+  currentLevelMinPoints: number;
+  nextLevelMinPoints: number;
+} {
+  let level = 1;
+  for (let i = 0; i < LEVEL_THRESHOLDS.length; i++) {
+    if (totalPoints >= LEVEL_THRESHOLDS[i]) {
+      level = i + 1;
+    } else {
+      break;
     }
   }
 
-  // Success Rate: (Total Completions) / (Total Possible Completions Since Habit Creation)
-  // This is a complex calculation. For simplicity, we can show completions / (habits * days_active_period)
-  // Or, just show total completions for now.
-  // Let's calculate success rate for the last 30 days for daily habits.
-  const thirtyDaysAgo = subDays(new Date(), 30);
+  const currentLevelMinPoints = LEVEL_THRESHOLDS[level - 1];
+  const nextLevelMinPoints = LEVEL_THRESHOLDS[level] ?? Infinity; // Points needed for next level
+  
+  let pointsToNextLevel: number;
+  let currentLevelProgress: number;
+
+  if (nextLevelMinPoints === Infinity) { // Max level
+    pointsToNextLevel = 0;
+    currentLevelProgress = 100;
+  } else {
+    pointsToNextLevel = nextLevelMinPoints - totalPoints;
+    const pointsInCurrentLevel = nextLevelMinPoints - currentLevelMinPoints;
+    currentLevelProgress = pointsInCurrentLevel > 0 ? ((totalPoints - currentLevelMinPoints) / pointsInCurrentLevel) * 100 : 100;
+  }
+
+  return {
+    level,
+    pointsToNextLevel: Math.max(0, pointsToNextLevel),
+    currentLevelProgress: parseFloat(Math.min(100, currentLevelProgress).toFixed(1)),
+    currentLevelMinPoints,
+    nextLevelMinPoints
+  };
+}
+
+
+export function getOverallStats(habits: Habit[], logs: HabitLog[]) {
+  const totalHabits = habits.length;
+  const totalCompletions = logs.length;
+  const totalPoints = calculatePoints(logs, habits);
+  const { level, pointsToNextLevel, currentLevelProgress } = calculateUserLevelAndPointsToNext(totalPoints);
+
+  let currentOverallStreak = 0;
+  let longestOverallStreak = 0;
+
+  if (totalHabits > 0) {
+    habits.forEach(habit => {
+       currentOverallStreak = Math.max(currentOverallStreak, calculateCurrentStreak(habit, logs));
+       longestOverallStreak = Math.max(longestOverallStreak, calculateLongestStreak(habit, logs));
+    });
+  }
+
+  const thirtyDaysAgo = subDays(new Date(), 29); // include today
+  thirtyDaysAgo.setHours(0,0,0,0);
   let possibleCompletionsLast30Days = 0;
   let actualCompletionsLast30Days = 0;
 
   habits.forEach(habit => {
     if (habit.frequency === 'daily') {
       const habitStartDate = new Date(habit.createdAt);
-      const startDateInPeriod = habitStartDate > thirtyDaysAgo ? habitStartDate : thirtyDaysAgo;
-      const daysActiveInPeriod = differenceInCalendarDays(new Date(), startDateInPeriod) + 1;
-      if (daysActiveInPeriod > 0) {
-        possibleCompletionsLast30Days += daysActiveInPeriod;
-        logs.filter(log => log.habitId === habit.id && new Date(log.date) >= startDateInPeriod)
-            .forEach(() => actualCompletionsLast30Days++);
-      }
+      habitStartDate.setHours(0,0,0,0);
+      
+      const range = eachDayOfInterval({
+        start: thirtyDaysAgo > habitStartDate ? thirtyDaysAgo : habitStartDate,
+        end: new Date()
+      });
+
+      range.forEach(day => {
+        if (day <= new Date()) { // Only count for past or current days
+             possibleCompletionsLast30Days++;
+             if (logs.some(log => log.habitId === habit.id && format(parseISO(log.date), "yyyy-MM-dd") === format(day, "yyyy-MM-dd"))) {
+                 actualCompletionsLast30Days++;
+             }
+        }
+      });
     }
   });
   
@@ -201,20 +251,22 @@ export function getOverallStats(habits: Habit[], logs: HabitLog[]) {
     ? (actualCompletionsLast30Days / possibleCompletionsLast30Days) * 100 
     : 0;
 
-
   return {
     totalHabits,
     totalCompletions,
     totalPoints,
-    currentOverallStreak, // This is max current streak of any daily habit
-    longestOverallStreak, // This is max longest streak of any daily habit
-    successRate: parseFloat(successRate.toFixed(1)) // Percentage
+    currentOverallStreak,
+    longestOverallStreak,
+    successRate: parseFloat(successRate.toFixed(1)),
+    userLevel: level,
+    pointsToNextLevel,
+    currentLevelProgress,
   };
 }
 
 export function getPieChartData(habits: Habit[], logs: HabitLog[], days: number = 7) {
-  // Pie chart for completed vs. missed daily habits in the last 'days'
   const endDate = new Date();
+  endDate.setHours(0,0,0,0);
   const startDate = subDays(endDate, days - 1);
   const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
 
@@ -230,7 +282,6 @@ export function getPieChartData(habits: Habit[], logs: HabitLog[], days: number 
   dateRange.forEach(date => {
     const dateString = format(date, "yyyy-MM-dd");
     dailyHabits.forEach(habit => {
-      // Habit must exist on this day
       if (new Date(habit.createdAt) <= date) {
         const isCompleted = logs.some(log => log.habitId === habit.id && log.date === dateString);
         if (isCompleted) {
@@ -249,5 +300,93 @@ export function getPieChartData(habits: Habit[], logs: HabitLog[], days: number 
   return [
     { name: "Concluídos", value: completedCount, fill: "hsl(var(--success))" },
     { name: "Perdidos", value: missedCount, fill: "hsl(var(--destructive))" },
-  ];
+  ].filter(item => item.value > 0);
 }
+
+
+export function checkMedalAchievement(medalDefinition: MedalDefinition, habits: Habit[], logs: HabitLog[]): boolean {
+  switch (medalDefinition.id) {
+    case "beginner_steps": // Criar o primeiro hábito
+      return habits.length >= 1;
+    case "perfect_week_daily": // Completar qualquer hábito diário por 7 dias seguidos
+      return habits.some(h => h.frequency === "daily" && calculateLongestStreak(h, logs) >= 7);
+    case "habit_collector_5": // Ter 5 hábitos ativos
+      return habits.length >= 5;
+    case "point_hoarder_1000": // Acumular 1000 pontos
+      return calculatePoints(logs, habits) >= 1000;
+    case "streak_master_30": // Manter qualquer hábito com sequência de 30 dias.
+      return habits.some(h => calculateLongestStreak(h, logs) >= 30);
+    default:
+      return false;
+  }
+}
+
+export function getAchievedMedals(habits: Habit[], logs: HabitLog[]): Medal[] {
+  const now = Date.now();
+  return MEDAL_DEFINITIONS.map(def => {
+    const isAchieved = checkMedalAchievement(def, habits, logs);
+    return {
+      ...def,
+      achievedAt: isAchieved ? now : null, // Simplificação: marca como conquistada agora se os critérios são atendidos.
+                                           // Idealmente, isso seria armazenado e apenas atualizado se `achievedAt` for null.
+    };
+  }).filter(medal => medal.achievedAt !== null); // Retorna apenas as medalhas conquistadas
+}
+
+
+export function getSuccessRateTrend(
+  habits: Habit[],
+  logs: HabitLog[],
+  numPeriods: number = 4, // e.g., last 4 weeks
+  periodType: 'weekly' | 'monthly' = 'weekly'
+): { name: string; taxaSucesso: number }[] {
+  const trendData: { name: string; taxaSucesso: number }[] = [];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  for (let i = 0; i < numPeriods; i++) {
+    let periodStart: Date;
+    let periodEnd: Date;
+    let periodName: string;
+
+    if (periodType === 'weekly') {
+      periodEnd = startOfWeek(subWeeks(today, i), { weekStartsOn: 1 });
+      periodEnd = subDays(periodEnd, 1); // End of previous week
+      periodEnd.setHours(23,59,59,999);
+      periodStart = startOfWeek(periodEnd, { weekStartsOn: 1 });
+      periodStart.setHours(0,0,0,0);
+      periodName = `Semana ${getWeek(periodStart, {weekStartsOn: 1})}`;
+      if (i === 0) periodName = "Semana Passada";
+      if (i === 1) periodName = "Semana Retrasada";
+
+    } else { // monthly
+      periodEnd = startOfWeek(subMonths(today, i), { weekStartsOn: 1 });
+      periodEnd = subDays(periodEnd, 1);
+      periodEnd.setHours(23,59,59,999);
+      periodStart = startOfWeek(periodEnd, { weekStartsOn: 1 });
+      periodStart.setHours(0,0,0,0);
+      periodName = format(periodStart, "MMM yyyy");
+    }
+    
+    let possibleCompletions = 0;
+    let actualCompletions = 0;
+    const daysInPeriod = eachDayOfInterval({start: periodStart, end: periodEnd});
+
+    daysInPeriod.forEach(dayInPeriod => {
+       habits.forEach(habit => {
+          if (habit.frequency === 'daily' && new Date(habit.createdAt) <= dayInPeriod) {
+             possibleCompletions++;
+             if (logs.some(log => log.habitId === habit.id && format(parseISO(log.date), "yyyy-MM-dd") === format(dayInPeriod, "yyyy-MM-dd"))) {
+                actualCompletions++;
+            }
+          }
+       });
+    });
+
+    const successRate = possibleCompletions > 0 ? (actualCompletions / possibleCompletions) * 100 : 0;
+    trendData.push({ name: periodName, taxaSucesso: parseFloat(successRate.toFixed(1)) });
+  }
+
+  return trendData.reverse(); // Show oldest period first
+}
+

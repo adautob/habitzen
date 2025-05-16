@@ -1,8 +1,10 @@
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AppHeader } from '@/components/AppHeader';
 import { Toaster } from '@/components/ui/toaster';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,11 +29,13 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background font-sans`}>
-        <div className="relative flex min-h-screen flex-col">
-          <AppHeader />
-          <main className="flex-1 container py-8">{children}</main>
-        </div>
-        <Toaster />
+        <ThemeProvider defaultTheme="system" storageKey="habitzen-theme">
+          <div className="relative flex min-h-screen flex-col">
+            <AppHeader />
+            <main className="flex-1 container py-8">{children}</main>
+          </div>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

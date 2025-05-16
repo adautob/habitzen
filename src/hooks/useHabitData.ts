@@ -1,7 +1,7 @@
 
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import type { Habit, HabitLog, HabitFormData } from "@/types";
+import type { Habit, HabitLog, HabitFormData, Medal } from "@/types";
 import {
   addHabit as dbAddHabit,
   getHabits as dbGetHabits,
@@ -15,12 +15,17 @@ import {
 import { POINTS_PER_DIFFICULTY } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { generateUUID } from "@/lib/uuid"; // Importar o gerador de UUID
+import { generateUUID } from "@/lib/uuid";
+import { getAchievedMedals } from "@/lib/gamification";
 
 export function useHabitData() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
+  const [achievedMedals, setAchievedMedals] = useState<Medal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLogsLoading, setIsLogsLoading] = useState(true);
+  const [isMedalsLoading, setIsMedalsLoading] = useState(true);
+
   const { toast } = useToast();
 
   const refreshHabits = useCallback(async () => {
@@ -38,25 +43,40 @@ export function useHabitData() {
 
   const refreshHabitLogs = useCallback(async () => {
     try {
-      // setIsLoading(true); // Potentially separate loading state for logs
+      setIsLogsLoading(true);
       const fetchedLogs = await dbGetHabitLogs();
       setHabitLogs(fetchedLogs);
     } catch (error) {
       console.error("Failed to fetch habit logs:", error);
       toast({ title: "Erro", description: "Não foi possível carregar os registros de hábitos.", variant: "destructive" });
     } finally {
-      // setIsLoading(false);
+      setIsLogsLoading(false);
     }
   }, [toast]);
+
+  const refreshMedals = useCallback(() => {
+    if (!isLoading && !isLogsLoading) { // Ensure habits and logs are loaded
+      setIsMedalsLoading(true);
+      const currentAchievedMedals = getAchievedMedals(habits, habitLogs);
+      setAchievedMedals(currentAchievedMedals);
+      setIsMedalsLoading(false);
+    }
+  }, [habits, habitLogs, isLoading, isLogsLoading]);
+
 
   useEffect(() => {
     refreshHabits();
     refreshHabitLogs();
   }, [refreshHabits, refreshHabitLogs]);
 
+  useEffect(() => {
+    refreshMedals();
+  }, [habits, habitLogs, refreshMedals]);
+
+
   const createHabit = async (formData: HabitFormData) => {
     const newHabit: Habit = {
-      id: generateUUID(), // Usar o gerador de UUID
+      id: generateUUID(),
       ...formData,
       createdAt: Date.now(),
       points: POINTS_PER_DIFFICULTY[formData.difficulty],
@@ -64,7 +84,7 @@ export function useHabitData() {
     try {
       await dbAddHabit(newHabit);
       toast({ title: "Sucesso", description: "Hábito criado com sucesso." });
-      await refreshHabits();
+      await refreshHabits(); // This will trigger medal refresh via useEffect
     } catch (error) {
       console.error("Failed to create habit:", error);
       toast({ title: "Erro", description: "Não foi possível criar o hábito.", variant: "destructive" });
@@ -85,7 +105,7 @@ export function useHabitData() {
     try {
       await dbUpdateHabit(updatedHabit);
       toast({ title: "Sucesso", description: "Hábito atualizado com sucesso." });
-      await refreshHabits();
+      await refreshHabits(); // Triggers medal refresh
     } catch (error) {
       console.error("Failed to update habit:", error);
       toast({ title: "Erro", description: "Não foi possível atualizar o hábito.", variant: "destructive" });
@@ -96,8 +116,8 @@ export function useHabitData() {
     try {
       await dbDeleteHabit(id);
       toast({ title: "Sucesso", description: "Hábito excluído com sucesso." });
-      await refreshHabits();
-      await refreshHabitLogs(); // Logs for this habit are also deleted
+      await refreshHabits(); // Triggers medal refresh
+      await refreshHabitLogs(); // Triggers medal refresh
     } catch (error) {
       console.error("Failed to delete habit:", error);
       toast({ title: "Erro", description: "Não foi possível excluir o hábito.", variant: "destructive" });
@@ -107,17 +127,15 @@ export function useHabitData() {
   const completeHabit = async (habitId: string, date: Date = new Date()) => {
     const dateString = format(date, "yyyy-MM-dd");
     try {
-      // Check if already completed
       const existingLog = await dbGetHabitLogByHabitIdAndDate(habitId, dateString);
       if (existingLog) {
-        // If user clicks again, uncomplete it
         await dbDeleteHabitLog(existingLog.id);
         toast({ title: "Hábito Desmarcado", description: "Hábito marcado como não concluído para hoje." });
       } else {
         await dbLogHabitCompletion(habitId, dateString);
         toast({ title: "Ótimo trabalho!", description: "Hábito marcado como concluído.", className: "bg-success text-success-foreground" });
       }
-      await refreshHabitLogs();
+      await refreshHabitLogs(); // Triggers medal refresh
     } catch (error) {
       console.error("Failed to log habit completion:", error);
       toast({ title: "Erro", description: "Não foi possível atualizar a conclusão do hábito.", variant: "destructive" });
@@ -138,14 +156,15 @@ export function useHabitData() {
   return {
     habits,
     habitLogs,
-    isLoading,
+    achievedMedals,
+    isLoading: isLoading || isLogsLoading || isMedalsLoading, // Combined loading state
     createHabit,
     editHabit,
     removeHabit,
     completeHabit,
     isHabitCompletedToday,
     getCompletionsForHabitOnDate,
-    refreshHabits,
+    refreshHabits, // Expose if manual refresh is needed elsewhere
     refreshHabitLogs,
   };
 }

@@ -1,3 +1,6 @@
+
+import type { LucideIcon } from "lucide-react";
+
 export type HabitDifficulty = 1 | 2 | 3;
 export type HabitFrequency = "daily" | "weekly";
 
@@ -19,14 +22,20 @@ export interface HabitLog {
   completedAt: number; // Timestamp
 }
 
-export interface Medal {
+// Base definition of a medal (static data)
+export interface MedalDefinition {
   id: string;
   name: string;
   description: string;
-  iconName: string; // Lucide icon name
-  achievedAt: number | null; // Timestamp, or null if not achieved
-  criteria: (habits: Habit[], logs: HabitLog[]) => boolean; // Function to check if medal is achieved
+  icon: LucideIcon; 
+  group: string; // e.g., "Consistency", "Creation", "Points"
 }
+
+// Medal instance, including achievement status
+export interface Medal extends MedalDefinition {
+  achievedAt: number | null; // Timestamp, or null if not achieved
+}
+
 
 export interface HabitFormData {
   name: string;
@@ -39,5 +48,5 @@ export interface HabitFormData {
 export interface ExportData {
   habits: Habit[];
   habitLogs: HabitLog[];
-  // medalsAchieved: Medal[]; // Or just store achieved medal IDs
+  achievedMedals?: Pick<Medal, 'id' | 'achievedAt'>[]; 
 }

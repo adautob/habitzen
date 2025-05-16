@@ -1,3 +1,4 @@
+
 "use client";
 import { Button } from "@/components/ui/button";
 import { AddHabitDialog } from "@/components/AddHabitDialog";
@@ -5,14 +6,17 @@ import { HabitList } from "@/components/HabitList";
 import { DashboardStats } from "@/components/DashboardStats";
 import { CompletionCalendar } from "@/components/CompletionCalendar";
 import { HabitCompletionPieChart } from "@/components/HabitCompletionPieChart";
+import { SuccessRateTrendChart } from "@/components/SuccessRateTrendChart";
+import { AchievementsTab } from "@/components/AchievementsTab";
 import { useHabitData } from "@/hooks/useHabitData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ListChecks, LayoutDashboard, PlusCircle } from "lucide-react";
+import { ListChecks, LayoutDashboard, PlusCircle, Trophy } from "lucide-react";
 
 export default function HabitZenPage() {
   const {
     habits,
     habitLogs,
+    achievedMedals,
     isLoading,
     createHabit,
     editHabit,
@@ -47,7 +51,7 @@ export default function HabitZenPage() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             Visão Geral
@@ -55,6 +59,10 @@ export default function HabitZenPage() {
           <TabsTrigger value="habits" className="flex items-center gap-2">
             <ListChecks className="h-4 w-4" />
             Meus Hábitos
+          </TabsTrigger>
+          <TabsTrigger value="achievements" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            Conquistas
           </TabsTrigger>
         </TabsList>
 
@@ -64,6 +72,7 @@ export default function HabitZenPage() {
             <CompletionCalendar habits={habits} habitLogs={habitLogs} isLoading={isLoading} />
             <HabitCompletionPieChart habits={habits} habitLogs={habitLogs} isLoading={isLoading} />
           </div>
+           <SuccessRateTrendChart habits={habits} habitLogs={habitLogs} isLoading={isLoading} />
         </TabsContent>
 
         <TabsContent value="habits">
@@ -75,6 +84,9 @@ export default function HabitZenPage() {
             onEditHabit={editHabit}
             onDeleteHabit={removeHabit}
           />
+        </TabsContent>
+         <TabsContent value="achievements">
+          <AchievementsTab achievedMedals={achievedMedals} isLoading={isLoading} />
         </TabsContent>
       </Tabs>
     </div>

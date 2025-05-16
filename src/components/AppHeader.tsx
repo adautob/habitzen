@@ -1,11 +1,14 @@
+
 "use client";
-import { Download } from "lucide-react";
+import { Download, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportData } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function AppHeader() {
   const { toast } = useToast();
+  const { effectiveTheme, toggleTheme } = useTheme();
 
   const handleExportData = async () => {
     try {
@@ -47,10 +50,15 @@ export function AppHeader() {
             HabitZen
           </h1>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExportData}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar Dados
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportData}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar Dados
+          </Button>
+          <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Alternar tema">
+            {effectiveTheme === 'dark' ? <Sun className="h-[1.2rem] w-[1.2rem]" /> : <Moon className="h-[1.2rem] w-[1.2rem]" />}
+          </Button>
+        </div>
       </div>
     </header>
   );
