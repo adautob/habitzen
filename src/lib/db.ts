@@ -1,6 +1,8 @@
+
 "use client";
 import type { Habit, HabitLog, ExportData } from "@/types";
 import { DB_NAME, DB_VERSION, HABITS_STORE_NAME, HABIT_LOGS_STORE_NAME } from "./constants";
+import { generateUUID } from "@/lib/uuid"; // Importar o gerador de UUID
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -90,7 +92,7 @@ export const deleteHabit = async (id: string): Promise<void> => {
 export const logHabitCompletion = async (habitId: string, date: string): Promise<HabitLog> => {
   const db = await initDB();
   const newLog: HabitLog = {
-    id: crypto.randomUUID(),
+    id: generateUUID(), // Usar o gerador de UUID
     habitId,
     date,
     completedAt: Date.now(),
@@ -103,7 +105,7 @@ export const logHabitCompletion = async (habitId: string, date: string): Promise
     request.onerror = (event) => {
       // Check for constraint error (duplicate habitId_date)
       if (request.error?.name === 'ConstraintError') {
-        console.warn(`Habit ${habitId} already logged for date ${date}.`);
+        console.warn(`Hábito ${habitId} já registrado para a data ${date}.`);
         // Optionally, fetch and return the existing log
         getHabitLogByHabitIdAndDate(habitId, date).then(resolve).catch(reject);
       } else {

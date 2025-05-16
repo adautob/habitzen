@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import type { Habit, HabitLog, HabitFormData } from "@/types";
@@ -14,6 +15,7 @@ import {
 import { POINTS_PER_DIFFICULTY } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { generateUUID } from "@/lib/uuid"; // Importar o gerador de UUID
 
 export function useHabitData() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -54,7 +56,7 @@ export function useHabitData() {
 
   const createHabit = async (formData: HabitFormData) => {
     const newHabit: Habit = {
-      id: crypto.randomUUID(),
+      id: generateUUID(), // Usar o gerador de UUID
       ...formData,
       createdAt: Date.now(),
       points: POINTS_PER_DIFFICULTY[formData.difficulty],
