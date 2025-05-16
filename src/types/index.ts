@@ -20,6 +20,7 @@ export interface HabitLog {
   habitId: string;
   date: string; // YYYY-MM-DD format
   completedAt: number; // Timestamp
+  notes?: string; // Optional notes for the completion
 }
 
 // Base definition of a medal (static data)
@@ -50,3 +51,4 @@ export interface ExportData {
   habitLogs: HabitLog[];
   achievedMedals?: Pick<Medal, 'id' | 'achievedAt'>[]; 
 }
+

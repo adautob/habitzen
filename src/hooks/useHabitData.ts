@@ -84,7 +84,7 @@ export function useHabitData() {
     try {
       await dbAddHabit(newHabit);
       toast({ title: "Sucesso", description: "Hábito criado com sucesso." });
-      await refreshHabits(); // This will trigger medal refresh via useEffect
+      await refreshHabits(); 
     } catch (error) {
       console.error("Failed to create habit:", error);
       toast({ title: "Erro", description: "Não foi possível criar o hábito.", variant: "destructive" });
@@ -105,7 +105,7 @@ export function useHabitData() {
     try {
       await dbUpdateHabit(updatedHabit);
       toast({ title: "Sucesso", description: "Hábito atualizado com sucesso." });
-      await refreshHabits(); // Triggers medal refresh
+      await refreshHabits(); 
     } catch (error) {
       console.error("Failed to update habit:", error);
       toast({ title: "Erro", description: "Não foi possível atualizar o hábito.", variant: "destructive" });
@@ -116,15 +116,15 @@ export function useHabitData() {
     try {
       await dbDeleteHabit(id);
       toast({ title: "Sucesso", description: "Hábito excluído com sucesso." });
-      await refreshHabits(); // Triggers medal refresh
-      await refreshHabitLogs(); // Triggers medal refresh
+      await refreshHabits(); 
+      await refreshHabitLogs(); 
     } catch (error) {
       console.error("Failed to delete habit:", error);
       toast({ title: "Erro", description: "Não foi possível excluir o hábito.", variant: "destructive" });
     }
   };
 
-  const completeHabit = async (habitId: string, date: Date = new Date()) => {
+  const completeHabit = async (habitId: string, date: Date = new Date(), notes?: string) => {
     const dateString = format(date, "yyyy-MM-dd");
     try {
       const existingLog = await dbGetHabitLogByHabitIdAndDate(habitId, dateString);
@@ -132,10 +132,10 @@ export function useHabitData() {
         await dbDeleteHabitLog(existingLog.id);
         toast({ title: "Hábito Desmarcado", description: "Hábito marcado como não concluído para hoje." });
       } else {
-        await dbLogHabitCompletion(habitId, dateString);
-        toast({ title: "Ótimo trabalho!", description: "Hábito marcado como concluído.", className: "bg-success text-success-foreground" });
+        await dbLogHabitCompletion(habitId, dateString, notes);
+        toast({ title: "Ótimo trabalho!", description: `Hábito concluído${notes ? ' com nota' : ''}.`, className: "bg-success text-success-foreground" });
       }
-      await refreshHabitLogs(); // Triggers medal refresh
+      await refreshHabitLogs(); 
     } catch (error) {
       console.error("Failed to log habit completion:", error);
       toast({ title: "Erro", description: "Não foi possível atualizar a conclusão do hábito.", variant: "destructive" });
@@ -157,14 +157,15 @@ export function useHabitData() {
     habits,
     habitLogs,
     achievedMedals,
-    isLoading: isLoading || isLogsLoading || isMedalsLoading, // Combined loading state
+    isLoading: isLoading || isLogsLoading || isMedalsLoading,
     createHabit,
     editHabit,
     removeHabit,
     completeHabit,
     isHabitCompletedToday,
     getCompletionsForHabitOnDate,
-    refreshHabits, // Expose if manual refresh is needed elsewhere
+    refreshHabits, 
     refreshHabitLogs,
   };
 }
+

@@ -89,13 +89,14 @@ export const deleteHabit = async (id: string): Promise<void> => {
   });
 };
 
-export const logHabitCompletion = async (habitId: string, date: string): Promise<HabitLog> => {
+export const logHabitCompletion = async (habitId: string, date: string, notes?: string): Promise<HabitLog> => {
   const db = await initDB();
   const newLog: HabitLog = {
-    id: generateUUID(), // Usar o gerador de UUID
+    id: generateUUID(),
     habitId,
     date,
     completedAt: Date.now(),
+    ...(notes && { notes }), // Add notes if provided
   };
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(HABIT_LOGS_STORE_NAME, "readwrite");
@@ -103,11 +104,17 @@ export const logHabitCompletion = async (habitId: string, date: string): Promise
     const request = store.add(newLog);
     request.onsuccess = () => resolve(newLog);
     request.onerror = (event) => {
-      // Check for constraint error (duplicate habitId_date)
       if (request.error?.name === 'ConstraintError') {
         console.warn(`Hábito ${habitId} já registrado para a data ${date}.`);
-        // Optionally, fetch and return the existing log
-        getHabitLogByHabitIdAndDate(habitId, date).then(resolve).catch(reject);
+        getHabitLogByHabitIdAndDate(habitId, date).then(existingLog => {
+          if (existingLog) { // If it already exists, and we are trying to add notes, update it (or decide on behavior)
+            // For now, let's assume if it's a constraint error, we don't overwrite notes.
+            // A more complex logic might update notes if provided.
+            resolve(existingLog);
+          } else {
+            reject(request.error);
+          }
+        }).catch(reject);
       } else {
         reject(request.error);
       }
@@ -176,7 +183,7 @@ export const exportData = async (): Promise<void> => {
     URL.revokeObjectURL(url);
   } catch (error) {
     console.error("Error exporting data:", error);
-    // Potentially show a toast to the user
-    throw error; // Re-throw for handling upstream if needed
+    throw error;
   }
 };
+
