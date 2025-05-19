@@ -12,71 +12,87 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+// 1. Fornecer um valor padrão inicial para o contexto.
+// Isso garante que useContext(ThemeContext) nunca retorne undefined.
+const initialContextValue: ThemeContextType = {
+  theme: "system", // Um padrão seguro
+  effectiveTheme: "light", // Um padrão seguro
+  setTheme: () => {
+    // Isso pode ser um no-op ou um aviso se chamado antes da montagem completa
+    console.warn("ThemeProvider not fully initialized: setTheme called.");
+  },
+  toggleTheme: () => {
+    console.warn("ThemeProvider not fully initialized: toggleTheme called.");
+  },
+};
+
+// 2. Usar o valor padrão ao criar o contexto.
+const ThemeContext = createContext<ThemeContextType>(initialContextValue);
 
 export function ThemeProvider({ children, defaultTheme = "system", storageKey = "habitzen-theme" }: { children: ReactNode, defaultTheme?: Theme, storageKey?: string }) {
+  const [theme, setThemeState] = useState<Theme>(defaultTheme);
+  // Initialize effectiveTheme to a non-undefined value that matches initialContextValue.effectiveTheme
+  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">(initialContextValue.effectiveTheme);
   const [isMounted, setIsMounted] = useState(false);
-  const [theme, setThemeState] = useState<Theme>(defaultTheme); // Initialize with default, localStorage/system preference read in useEffect
-  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">("light"); // Safe default, updated after mount
 
-  // Effect to handle initial theme setup on client mount
+  // Effect para configuração inicial no lado do cliente
   useEffect(() => {
-    let initialStoredTheme: Theme;
+    let storedThemeValue: Theme;
     try {
-      initialStoredTheme = (window.localStorage.getItem(storageKey) as Theme | null) || defaultTheme;
+      storedThemeValue = (window.localStorage.getItem(storageKey) as Theme | null) || defaultTheme;
     } catch (e) {
       console.warn("Failed to read theme from localStorage during initial setup", e);
-      initialStoredTheme = defaultTheme;
+      storedThemeValue = defaultTheme;
     }
-    setThemeState(initialStoredTheme); // Set the theme based on localStorage or default
+    setThemeState(storedThemeValue);
 
-    let initialEffective: "light" | "dark";
-    if (initialStoredTheme === "system") {
-      initialEffective = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    } else {
-      initialEffective = initialStoredTheme as "light" | "dark";
-    }
+    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initialEffective = storedThemeValue === "system"
+      ? (systemPrefersDark ? "dark" : "light")
+      : (storedThemeValue as "light" | "dark");
+
+    setEffectiveTheme(initialEffective);
 
     const root = window.document.documentElement;
     root.classList.remove("light", "dark");
     root.classList.add(initialEffective);
-    setEffectiveTheme(initialEffective); // Set the determined effective theme
 
-    setIsMounted(true); // Signal that client-side setup is complete
+    setIsMounted(true); // Sinaliza que a configuração do lado do cliente está completa
   }, [defaultTheme, storageKey]);
 
-  // Effect to apply theme changes and listen for system preference changes
-  useEffect(() => {
-    if (!isMounted) return; // Only run after initial mount and setup
 
-    let currentAppliedTheme: "light" | "dark";
-    if (theme === "system") {
-      currentAppliedTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    } else {
-      currentAppliedTheme = theme as "light" | "dark";
-    }
+  // Effect para aplicar mudanças de tema e ouvir mudanças de preferência do sistema
+  useEffect(() => {
+    if (!isMounted) return; // Executar somente após a montagem e configuração inicial
 
     const root = window.document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(currentAppliedTheme);
-    // Also update effectiveTheme state if it changed due to system preference for 'system' theme
-    if (theme === "system" && effectiveTheme !== currentAppliedTheme) {
-        setEffectiveTheme(currentAppliedTheme);
+    let newAppliedEffectiveTheme: "light" | "dark";
+
+    if (theme === "system") {
+      newAppliedEffectiveTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } else {
+      newAppliedEffectiveTheme = theme as "light" | "dark";
     }
 
+    if (effectiveTheme !== newAppliedEffectiveTheme) {
+      setEffectiveTheme(newAppliedEffectiveTheme);
+    }
+    
+    root.classList.remove("light", "dark");
+    root.classList.add(newAppliedEffectiveTheme);
 
     if (theme === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const handleChange = () => {
-        const newSystemEffectiveTheme = mediaQuery.matches ? "dark" : "light";
+        const systemEffectiveThemeUpdate = mediaQuery.matches ? "dark" : "light";
         root.classList.remove("light", "dark");
-        root.classList.add(newSystemEffectiveTheme);
-        setEffectiveTheme(newSystemEffectiveTheme); // Update state to reflect change
+        root.classList.add(systemEffectiveThemeUpdate);
+        setEffectiveTheme(systemEffectiveThemeUpdate); // Atualiza o estado para refletir a mudança
       };
       mediaQuery.addEventListener("change", handleChange);
       return () => mediaQuery.removeEventListener("change", handleChange);
     }
-  }, [theme, isMounted, effectiveTheme]); // Added effectiveTheme to dependencies for the check
+  }, [theme, effectiveTheme, isMounted]);
 
 
   const setThemeCallback = useCallback((newTheme: Theme) => {
@@ -87,7 +103,7 @@ export function ThemeProvider({ children, defaultTheme = "system", storageKey = 
          console.warn("Failed to save theme to localStorage", e);
       }
     }
-    setThemeState(newTheme); // This will trigger the useEffect above to apply the theme
+    setThemeState(newTheme);
   }, [storageKey]);
 
   const toggleThemeCallback = useCallback(() => {
@@ -101,25 +117,30 @@ export function ThemeProvider({ children, defaultTheme = "system", storageKey = 
     toggleTheme: toggleThemeCallback
   }), [theme, effectiveTheme, setThemeCallback, toggleThemeCallback]);
 
-  if (!isMounted) {
-    // Return null on SSR and before client-side mount & theme initialization is complete.
-    // This prevents children from rendering and calling useTheme prematurely.
-    return null;
-  }
-
+  // O ThemeProvider SEMPRE renderiza o componente Provider.
+  // Seus filhos são renderizados condicionalmente após a montagem.
   return (
     <ThemeContext.Provider value={contextValue}>
-      {children}
+      {isMounted ? children : null}
     </ThemeContext.Provider>
   );
 }
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
+  // Como ThemeContext agora é criado com initialContextValue,
+  // 'context' nunca deve ser undefined aqui se o useTheme for chamado
+  // dentro de uma árvore com ThemeProvider.
+  // A verificação original "if (context === undefined)" era para o caso de
+  // createContext ser chamado sem um valor padrão (ou com undefined explicitamente).
+  // Se, por algum motivo extremo, context ainda fosse o initialContextValue (semelhante a estar fora de um Provider),
+  // as funções de placeholder em initialContextValue emitiriam avisos.
+  // A throw new Error original indica que o useContext realmente retornou undefined.
   if (context === undefined) {
-    // This error should ideally not be hit if the `if (!isMounted) return null;` guard
-    // in ThemeProvider works as expected and RootLayout places AppHeader correctly.
-    throw new Error("useTheme must be used within a ThemeProvider. Check component hierarchy, conditional rendering, and ensure ThemeProvider has mounted.");
+     // Este caso deve ser teoricamente impossível agora com createContext(initialContextValue)
+     // e ThemeProvider sempre renderizando o Provider.
+     // Manter o erro por segurança, mas a causa raiz deve ter sido o createContext(undefined).
+    throw new Error("useTheme must be used within a ThemeProvider. This error should not occur if ThemeContext has a default value.");
   }
   return context;
 };
