@@ -37,7 +37,7 @@ const HeartIcon = Heart;
 const BriefcaseIcon = Briefcase;
 const BookOpenIcon = BookOpen;
 const DollarSignIcon = DollarSign;
-const SmileIcon = Smile; 
+const SmileIcon = Smile;
 const TrendingUpIcon = TrendingUp;
 
 const categoryIcons: Record<string, React.ElementType> = {
@@ -98,10 +98,10 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
 
   const handleCompleteClick = () => {
     if (isCompletedToday) {
-      onComplete(habit.id); 
+      onComplete(habit.id);
     } else {
-      setCurrentNote(""); 
-      setIsAddNoteDialogOpen(true); 
+      setCurrentNote("");
+      setIsAddNoteDialogOpen(true);
     }
   };
 
@@ -141,11 +141,11 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
   return (
     <>
       <Card className={cn(
-        "transition-all hover:shadow-md flex flex-col relative overflow-hidden", 
+        "transition-all hover:shadow-md flex flex-col relative overflow-hidden",
         isCompletedToday ? "bg-success/10 border-success" : ""
       )}>
         {habit.color && (
-          <div 
+          <div
             className="absolute left-0 top-0 bottom-0 w-1.5"
             style={{ backgroundColor: habit.color }}
           />
@@ -282,14 +282,14 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
                   onChange={(e) => setCurrentNote(e.target.value)}
                   placeholder="Ex: Corri 5km hoje, me senti ótimo!"
                   rows={3}
-                  className="pr-10" 
+                  className="pr-10"
                 />
                 <Popover open={addNoteEmojiPickerOpen} onOpenChange={setAddNoteEmojiPickerOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
                       aria-label="Adicionar emoji"
                     >
                       <SmilePlus className="h-4 w-4" />

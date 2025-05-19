@@ -113,7 +113,7 @@ export function ViewEditNoteDialog({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
                     aria-label="Adicionar emoji"
                   >
                     <SmilePlus className="h-4 w-4" />
