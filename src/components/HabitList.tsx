@@ -41,12 +41,12 @@ export function HabitList({
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
         <Image 
-          src="https://placehold.co/300x200.png" 
+          src="https://placehold.co/200x133.png" 
           alt="Nenhum hábito ainda" 
           width={200} 
           height={133}
           className="mb-4 rounded-md"
-          data-ai-hint="jardim zen ilustração" 
+          data-ai-hint="zen garden" 
         />
         <h3 className="text-xl font-semibold">Nenhum Hábito Ainda!</h3>
         <p className="text-muted-foreground">

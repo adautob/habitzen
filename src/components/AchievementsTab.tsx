@@ -31,12 +31,12 @@ export function AchievementsTab({ achievedMedals, isLoading }: AchievementsTabPr
     return (
        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
          <Image
-            src="https://placehold.co/300x200.png"
+            src="https://placehold.co/200x133.png"
             alt="Nenhuma conquista definida"
             width={200}
             height={133}
             className="mb-4 rounded-md"
-            data-ai-hint="troféu vazio prateleira"
+            data-ai-hint="trophy shelf"
         />
         <h3 className="text-xl font-semibold">Nenhuma Conquista Definida</h3>
         <p className="text-muted-foreground">
