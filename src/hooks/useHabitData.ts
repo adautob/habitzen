@@ -23,15 +23,16 @@ export function useHabitData() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [achievedMedals, setAchievedMedals] = useState<Medal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLogsLoading, setIsLogsLoading] = useState(true);
-  const [isMedalsLoading, setIsMedalsLoading] = useState(true);
+  
+  const [isLoadingHabits, setIsLoadingHabits] = useState(true);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(true);
+  const [isLoadingMedals, setIsLoadingMedals] = useState(true);
 
   const { toast } = useToast();
 
   const refreshHabits = useCallback(async () => {
     try {
-      setIsLoading(true);
+      setIsLoadingHabits(true);
       const fetchedHabits = await dbGetHabits();
       setHabits((fetchedHabits || []).sort((a, b) => b.createdAt - a.createdAt));
     } catch (error) {
@@ -39,33 +40,23 @@ export function useHabitData() {
       toast({ title: "Erro", description: "Não foi possível carregar os hábitos.", variant: "destructive" });
       setHabits([]);
     } finally {
-      setIsLoading(false);
+      setIsLoadingHabits(false);
     }
   }, [toast]);
 
   const refreshHabitLogs = useCallback(async () => {
     try {
-      setIsLogsLoading(true);
+      setIsLoadingLogs(true);
       const fetchedLogs = await dbGetHabitLogs();
-      setHabitLogs(fetchedLogs || []); // Ensure fetchedLogs is at least an empty array
+      setHabitLogs(fetchedLogs || []);
     } catch (error) {
       console.error("Failed to fetch habit logs:", error);
       toast({ title: "Erro", description: "Não foi possível carregar os registros de hábitos.", variant: "destructive" });
-      setHabitLogs([]); // Ensure habitLogs is an array on error
+      setHabitLogs([]);
     } finally {
-      setIsLogsLoading(false);
+      setIsLoadingLogs(false);
     }
   }, [toast]);
-
-  const refreshMedals = useCallback(() => {
-    if (!isLoading && !isLogsLoading) { // Ensure habits and logs are loaded
-      setIsMedalsLoading(true);
-      const currentAchievedMedals = getAchievedMedals(habits, habitLogs);
-      setAchievedMedals(currentAchievedMedals || []);
-      setIsMedalsLoading(false);
-    }
-  }, [habits, habitLogs, isLoading, isLogsLoading]);
-
 
   useEffect(() => {
     refreshHabits();
@@ -73,8 +64,20 @@ export function useHabitData() {
   }, [refreshHabits, refreshHabitLogs]);
 
   useEffect(() => {
-    refreshMedals();
-  }, [habits, habitLogs, refreshMedals]);
+    if (!isLoadingHabits && !isLoadingLogs) {
+      // Somente calcula medalhas se hábitos e logs estiverem carregados
+      setIsLoadingMedals(true); // Indica que estamos processando medalhas
+      const currentAchievedMedals = getAchievedMedals(habits, habitLogs);
+      setAchievedMedals(currentAchievedMedals || []);
+      setIsLoadingMedals(false); // Medalhas processadas
+    } else {
+      // Se hábitos ou logs ainda estão carregando, medalhas também estão efetivamente "carregando" ou pendentes.
+      // Mantém ou redefine isLoadingMedals para true para que o isLoading geral reflita isso.
+      if (!isLoadingMedals) { // Apenas para garantir, se por algum motivo ficou false
+        setIsLoadingMedals(true);
+      }
+    }
+  }, [isLoadingHabits, isLoadingLogs, habits, habitLogs]); // Reavalia quando os estados de carregamento base ou os dados mudam
 
 
   const createHabit = async (formData: HabitFormData) => {
@@ -155,19 +158,19 @@ export function useHabitData() {
 
   const isHabitCompletedToday = useCallback((habitId: string, date: Date = new Date()): HabitLog | undefined => {
     const dateString = format(date, "yyyy-MM-dd");
-    if (!Array.isArray(habitLogs)) return undefined; // Defensive check
+    if (!Array.isArray(habitLogs)) return undefined;
     return habitLogs.find(log => log.habitId === habitId && log.date === dateString);
   }, [habitLogs]);
   
   const getCompletionsForHabitOnDate = useCallback((habitId: string, targetDate: Date): HabitLog[] => {
     const dateString = format(targetDate, "yyyy-MM-dd");
-    if (!Array.isArray(habitLogs)) return []; // Defensive check
+    if (!Array.isArray(habitLogs)) return [];
     return habitLogs.filter(log => log.habitId === habitId && log.date === dateString);
   }, [habitLogs]);
 
   const updateLogNotes = async (logId: string, newNotes: string | undefined) => {
     try {
-      if (!Array.isArray(habitLogs)) { // Defensive check
+      if (!Array.isArray(habitLogs)) {
          toast({ title: "Erro", description: "Registros de hábitos não carregados.", variant: "destructive" });
          return;
       }
@@ -191,7 +194,7 @@ export function useHabitData() {
     habits,
     habitLogs,
     achievedMedals,
-    isLoading: isLoading || isLogsLoading || isMedalsLoading,
+    isLoading: isLoadingHabits || isLoadingLogs || isLoadingMedals,
     createHabit,
     editHabit,
     removeHabit,
