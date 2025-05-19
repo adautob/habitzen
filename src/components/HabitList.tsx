@@ -8,7 +8,7 @@ import { format } from "date-fns";
 
 interface HabitListProps {
   habits: Habit[];
-  habitLogs: HabitLog[]; 
+  habitLogs: HabitLog[];
   isLoading: boolean;
   isHabitCompletedToday: (habitId: string, date?: Date) => HabitLog | undefined; // Returns log or undefined
   onCompleteHabit: (habitId: string, date?: Date, notes?: string) => void;
@@ -19,7 +19,7 @@ interface HabitListProps {
 
 export function HabitList({
   habits,
-  habitLogs, 
+  habitLogs,
   isLoading,
   isHabitCompletedToday,
   onCompleteHabit,
@@ -40,13 +40,13 @@ export function HabitList({
   if (habits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-        <Image 
-          src="https://placehold.co/200x133.png" 
-          alt="Nenhum hábito ainda" 
-          width={200} 
+        <Image
+          src="https://placehold.co/200x133.png"
+          alt="Nenhum hábito ainda"
+          width={200}
           height={133}
           className="mb-4 rounded-md"
-          data-ai-hint="zen garden" 
+          data-ai-hint="zen garden"
         />
         <h3 className="text-xl font-semibold">Nenhum Hábito Ainda!</h3>
         <p className="text-muted-foreground">
@@ -58,21 +58,25 @@ export function HabitList({
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {habits.map((habit) => {
-        const todayLog = isHabitCompletedToday(habit.id);
-        return (
-          <HabitItem
-            key={habit.id}
-            habit={habit}
-            habitLogs={habitLogs.filter(log => log.habitId === habit.id)} 
-            todayLog={todayLog}
-            onComplete={onCompleteHabit}
-            onEdit={onEditHabit}
-            onDelete={onDeleteHabit}
-            onUpdateLogNotes={onUpdateLogNotes}
-          />
-        );
-      })}
+      {habits
+        .filter(habit => habit && habit.id) // Garante que o hábito e seu ID são válidos
+        .map((habit) => {
+          const todayLog = isHabitCompletedToday(habit.id);
+          // Garante que cada log é válido antes de tentar acessar log.habitId
+          const logsForThisHabit = habitLogs.filter(log => log && log.habitId === habit.id);
+          return (
+            <HabitItem
+              key={habit.id}
+              habit={habit}
+              habitLogs={logsForThisHabit}
+              todayLog={todayLog}
+              onComplete={onCompleteHabit}
+              onEdit={onEditHabit}
+              onDelete={onDeleteHabit}
+              onUpdateLogNotes={onUpdateLogNotes}
+            />
+          );
+        })}
     </div>
   );
 }
