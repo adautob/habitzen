@@ -33,10 +33,11 @@ export function useHabitData() {
     try {
       setIsLoading(true);
       const fetchedHabits = await dbGetHabits();
-      setHabits(fetchedHabits.sort((a, b) => b.createdAt - a.createdAt));
+      setHabits((fetchedHabits || []).sort((a, b) => b.createdAt - a.createdAt));
     } catch (error) {
       console.error("Failed to fetch habits:", error);
       toast({ title: "Erro", description: "Não foi possível carregar os hábitos.", variant: "destructive" });
+      setHabits([]);
     } finally {
       setIsLoading(false);
     }
@@ -46,10 +47,11 @@ export function useHabitData() {
     try {
       setIsLogsLoading(true);
       const fetchedLogs = await dbGetHabitLogs();
-      setHabitLogs(fetchedLogs);
+      setHabitLogs(fetchedLogs || []); // Ensure fetchedLogs is at least an empty array
     } catch (error) {
       console.error("Failed to fetch habit logs:", error);
       toast({ title: "Erro", description: "Não foi possível carregar os registros de hábitos.", variant: "destructive" });
+      setHabitLogs([]); // Ensure habitLogs is an array on error
     } finally {
       setIsLogsLoading(false);
     }
@@ -59,7 +61,7 @@ export function useHabitData() {
     if (!isLoading && !isLogsLoading) { // Ensure habits and logs are loaded
       setIsMedalsLoading(true);
       const currentAchievedMedals = getAchievedMedals(habits, habitLogs);
-      setAchievedMedals(currentAchievedMedals);
+      setAchievedMedals(currentAchievedMedals || []);
       setIsMedalsLoading(false);
     }
   }, [habits, habitLogs, isLoading, isLogsLoading]);
@@ -153,16 +155,22 @@ export function useHabitData() {
 
   const isHabitCompletedToday = useCallback((habitId: string, date: Date = new Date()): HabitLog | undefined => {
     const dateString = format(date, "yyyy-MM-dd");
+    if (!Array.isArray(habitLogs)) return undefined; // Defensive check
     return habitLogs.find(log => log.habitId === habitId && log.date === dateString);
   }, [habitLogs]);
   
   const getCompletionsForHabitOnDate = useCallback((habitId: string, targetDate: Date): HabitLog[] => {
     const dateString = format(targetDate, "yyyy-MM-dd");
+    if (!Array.isArray(habitLogs)) return []; // Defensive check
     return habitLogs.filter(log => log.habitId === habitId && log.date === dateString);
   }, [habitLogs]);
 
   const updateLogNotes = async (logId: string, newNotes: string | undefined) => {
     try {
+      if (!Array.isArray(habitLogs)) { // Defensive check
+         toast({ title: "Erro", description: "Registros de hábitos não carregados.", variant: "destructive" });
+         return;
+      }
       const logToUpdate = habitLogs.find(log => log.id === logId);
       if (!logToUpdate) {
         toast({ title: "Erro", description: "Registro de hábito não encontrado.", variant: "destructive" });
