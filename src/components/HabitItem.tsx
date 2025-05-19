@@ -283,7 +283,7 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
                   onChange={(e) => setCurrentNote(e.target.value)}
                   placeholder="Ex: Corri 5km hoje, me senti ótimo!"
                   rows={3}
-                  className="pr-12"
+                  className="pr-12 overflow-x-hidden resize-none"
                 />
                 <Popover open={addNoteEmojiPickerOpen} onOpenChange={setAddNoteEmojiPickerOpen}>
                   <PopoverTrigger asChild>
@@ -345,6 +345,3 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
     </>
   );
 }
-
-
-    
