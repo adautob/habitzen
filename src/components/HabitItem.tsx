@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp, BarChart3, FileText, SmilePlus } from "lucide-react";
+import { CheckCircle, XCircle, Edit, Trash2, CalendarDays, Repeat, AlertTriangle, Zap, Home, Users, Layers, Dumbbell, Heart, Briefcase, BookOpen, DollarSign, Smile, TrendingUp, BarChart3, FileText, SmilePlus, Check } from "lucide-react";
 import { StarRating } from "@/components/ui/StarRating";
 import { AddHabitDialog } from "./AddHabitDialog";
 import { ViewEditNoteDialog } from "./ViewEditNoteDialog";
@@ -28,6 +28,7 @@ import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { HABIT_COLORS } from "@/lib/constants";
 
 const HomeIcon = Home;
 const UsersIcon = Users;
@@ -282,7 +283,7 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
                   onChange={(e) => setCurrentNote(e.target.value)}
                   placeholder="Ex: Corri 5km hoje, me senti ótimo!"
                   rows={3}
-                  className="pr-10"
+                  className="pr-12"
                 />
                 <Popover open={addNoteEmojiPickerOpen} onOpenChange={setAddNoteEmojiPickerOpen}>
                   <PopoverTrigger asChild>
@@ -344,3 +345,6 @@ export function HabitItem({ habit, habitLogs, todayLog, onComplete, onEdit, onDe
     </>
   );
 }
+
+
+    

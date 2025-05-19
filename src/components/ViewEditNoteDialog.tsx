@@ -106,7 +106,7 @@ export function ViewEditNoteDialog({
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Adicione sua nota aqui..."
                 rows={4}
-                className="resize-none pr-10" // Padding for the emoji button
+                className="resize-none pr-12" 
               />
               <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
                 <PopoverTrigger asChild>
@@ -156,3 +156,5 @@ export function ViewEditNoteDialog({
   );
 }
 
+
+    
