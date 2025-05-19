@@ -8,7 +8,7 @@ import { format } from "date-fns";
 
 interface HabitListProps {
   habits: Habit[];
-  habitLogs: HabitLog[];
+  habitLogs: HabitLog[]; // Prop type remains HabitLog[]
   isLoading: boolean;
   isHabitCompletedToday: (habitId: string, date?: Date) => HabitLog | undefined; // Returns log or undefined
   onCompleteHabit: (habitId: string, date?: Date, notes?: string) => void;
@@ -19,7 +19,7 @@ interface HabitListProps {
 
 export function HabitList({
   habits,
-  habitLogs,
+  habitLogs = [], // Provide default empty array for the prop
   isLoading,
   isHabitCompletedToday,
   onCompleteHabit,
@@ -63,6 +63,7 @@ export function HabitList({
         .map((habit) => {
           const todayLog = isHabitCompletedToday(habit.id);
           // Garante que cada log é válido antes de tentar acessar log.habitId
+          // Use the habitLogs prop (which now defaults to an empty array if undefined was passed)
           const logsForThisHabit = habitLogs.filter(log => log && log.habitId === habit.id);
           return (
             <HabitItem
