@@ -32,7 +32,7 @@ export default function RootLayout({
         <ThemeProvider defaultTheme="system" storageKey="habitzen-theme">
           <div className="relative flex min-h-screen flex-col">
             <AppHeader />
-            <main className="flex-1 container py-8">{children}</main>
+            <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
           </div>
           <Toaster />
         </ThemeProvider>
