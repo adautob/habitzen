@@ -51,7 +51,7 @@ export default function HabitZenPage() {
         />
       </div>
 
-      <Tabs defaultValue="dashboard" className="sm:space-y-6"> {/* Adjusted space-y for sm and up */}
+      <Tabs defaultValue="dashboard" className="sm:space-y-6">
         <TabsList className="grid w-full grid-cols-1 bg-background py-1 shadow-sm sm:shadow-none sm:bg-muted sm:p-1 sm:w-auto sm:grid-cols-3 sticky top-0 z-20 sm:relative sm:top-auto sm:z-auto">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
@@ -67,15 +67,7 @@ export default function HabitZenPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Approximate height of TabsList on mobile: 3 items * ~2rem/item + p-1 ~ 6.5rem.
-            The Tabs component itself has space-y-6 on sm+, which is 1.5rem.
-            So on mobile, we need to add padding to compensate.
-            Approx 6.5rem (TabsList height) means pt-24 or pt-28.
-            Let's use pt-28 for mobile TabsContent to ensure content is below sticky TabsList.
-            The original space-y-6 on Tabs is removed for mobile and applied conditionally for sm and up.
-            We'll add margin-top to the TabsContent itself for mobile.
-        */}
-        <TabsContent value="dashboard" className="mt-6 space-y-6 sm:mt-0">
+        <TabsContent value="dashboard" className="mt-28 space-y-6 sm:mt-0">
           <DashboardStats habits={habits} habitLogs={habitLogs} isLoading={isLoading} />
           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
             <CompletionCalendar habits={habits} habitLogs={habitLogs} isLoading={isLoading} />
@@ -84,7 +76,7 @@ export default function HabitZenPage() {
            <SuccessRateTrendChart habits={habits} habitLogs={habitLogs} isLoading={isLoading} />
         </TabsContent>
 
-        <TabsContent value="habits" className="mt-6 sm:mt-0">
+        <TabsContent value="habits" className="mt-28 sm:mt-0">
           <HabitList
             habits={habits}
             habitLogs={habitLogs} 
@@ -96,7 +88,7 @@ export default function HabitZenPage() {
             onUpdateLogNotes={updateLogNotes}
           />
         </TabsContent>
-         <TabsContent value="achievements" className="mt-6 sm:mt-0">
+         <TabsContent value="achievements" className="mt-28 sm:mt-0">
           <AchievementsTab achievedMedals={achievedMedals} isLoading={isLoading} />
         </TabsContent>
       </Tabs>
