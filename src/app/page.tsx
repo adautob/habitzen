@@ -1,5 +1,7 @@
 
 "use client";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { AddHabitDialog } from "@/components/AddHabitDialog";
 import { HabitList } from "@/components/HabitList";
@@ -11,8 +13,12 @@ import { AchievementsTab } from "@/components/AchievementsTab";
 import { useHabitData } from "@/hooks/useHabitData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListChecks, LayoutDashboard, PlusCircle, Trophy } from "lucide-react";
+import { useUser } from '@/firebase/auth/use-user';
 
 export default function HabitZenPage() {
+  const { user, isLoading: isUserLoading } = useUser();
+  const router = useRouter();
+
   const {
     habits,
     habitLogs,
@@ -25,6 +31,21 @@ export default function HabitZenPage() {
     isHabitCompletedToday,
     updateLogNotes,
   } = useHabitData();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p>Carregando...</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8">
