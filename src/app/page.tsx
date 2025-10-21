@@ -57,12 +57,13 @@ export default function HabitZenPage() {
           </p>
         </div>
         <AddHabitDialog
-          onSave={async (data, habitId) => {
+          onSave={(data, habitId) => { // Removido o async/await aqui
             if (habitId) {
-              await editHabit(habitId, data);
+              editHabit(habitId, data);
             } else {
-              await createHabit(data);
+              createHabit(data);
             }
+            return Promise.resolve(); // Retorna uma promessa resolvida para satisfazer o tipo
           }}
           triggerButton={
              <Button size="lg" className="shadow-md hover:shadow-lg transition-shadow">
