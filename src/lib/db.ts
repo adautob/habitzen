@@ -45,9 +45,9 @@ export const addHabit = async (habitData: HabitFormData): Promise<string> => {
     category: habitData.category,
     difficulty: habitData.difficulty,
     frequency: habitData.frequency,
-    color: habitData.color,
     createdAt: Date.now(),
     points: POINTS_PER_DIFFICULTY[habitData.difficulty],
+    ...(habitData.color && { color: habitData.color }),
   };
 
   const docRef = await addDoc(habitCollectionRef, newHabit);
