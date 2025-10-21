@@ -5,9 +5,9 @@
       "description": "A user of the application.",
       "type": "object",
       "properties": {
-        "name": {
+        "displayName": {
           "type": "string",
-          "description": "The user's name."
+          "description": "The user's display name."
         },
         "email": {
           "type": "string",
@@ -18,10 +18,15 @@
           "description": "The URL of the user's profile picture."
         }
       },
-      "required": ["name", "email"]
+      "required": [
+        "displayName",
+        "email"
+      ]
     }
   },
   "auth": {
-    "providers": ["google.com"]
+    "providers": [
+      "google.com"
+    ]
   }
 }
