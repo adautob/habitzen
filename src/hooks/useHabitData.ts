@@ -13,13 +13,13 @@ import {
   updateHabitLog as dbUpdateHabitLog,
   deleteHabitLog as dbDeleteHabitLog,
 } from "@/lib/db";
-import { POINTS_PER_DIFFICULTY, HABIT_COLORS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { generateUUID } from "@/lib/uuid";
 import { getAchievedMedals } from "@/lib/gamification";
+import { useUser } from "@/firebase/auth/use-user";
 
 export function useHabitData() {
+  const { user, isLoading: isUserLoading } = useUser();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [achievedMedals, setAchievedMedals] = useState<Medal[]>([]);
@@ -30,71 +30,60 @@ export function useHabitData() {
 
   const { toast } = useToast();
 
-  const refreshHabits = useCallback(async () => {
-    try {
-      setIsLoadingHabits(true);
-      const fetchedHabits = await dbGetHabits();
-      setHabits((fetchedHabits || []).sort((a, b) => b.createdAt - a.createdAt));
-    } catch (error) {
-      console.error("Failed to fetch habits:", error);
-      toast({ title: "Erro", description: "Não foi possível carregar os hábitos.", variant: "destructive" });
+  const refreshData = useCallback(async () => {
+    if (!user) {
       setHabits([]);
-    } finally {
+      setHabitLogs([]);
       setIsLoadingHabits(false);
-    }
-  }, [toast]);
-
-  const refreshHabitLogs = useCallback(async () => {
+      setIsLoadingLogs(false);
+      return;
+    };
+    
+    setIsLoadingHabits(true);
+    setIsLoadingLogs(true);
     try {
-      setIsLoadingLogs(true);
-      const fetchedLogs = await dbGetHabitLogs();
+      const [fetchedHabits, fetchedLogs] = await Promise.all([
+        dbGetHabits(),
+        dbGetHabitLogs(),
+      ]);
+      setHabits((fetchedHabits || []).sort((a, b) => b.createdAt - a.createdAt));
       setHabitLogs(fetchedLogs || []);
     } catch (error) {
-      console.error("Failed to fetch habit logs:", error);
-      toast({ title: "Erro", description: "Não foi possível carregar os registros de hábitos.", variant: "destructive" });
+      console.error("Failed to fetch data:", error);
+      toast({ title: "Erro", description: "Não foi possível carregar os dados.", variant: "destructive" });
+      setHabits([]);
       setHabitLogs([]);
     } finally {
+      setIsLoadingHabits(false);
       setIsLoadingLogs(false);
     }
-  }, [toast]);
+  }, [user, toast]);
 
   useEffect(() => {
-    refreshHabits();
-    refreshHabitLogs();
-  }, [refreshHabits, refreshHabitLogs]);
+    if (!isUserLoading) {
+        refreshData();
+    }
+  }, [isUserLoading, refreshData]);
 
   useEffect(() => {
     if (!isLoadingHabits && !isLoadingLogs) {
-      // Somente calcula medalhas se hábitos e logs estiverem carregados
-      setIsLoadingMedals(true); // Indica que estamos processando medalhas
+      setIsLoadingMedals(true);
       const currentAchievedMedals = getAchievedMedals(habits, habitLogs);
       setAchievedMedals(currentAchievedMedals || []);
-      setIsLoadingMedals(false); // Medalhas processadas
+      setIsLoadingMedals(false);
     } else {
-      // Se hábitos ou logs ainda estão carregando, medalhas também estão efetivamente "carregando" ou pendentes.
-      // Mantém ou redefine isLoadingMedals para true para que o isLoading geral reflita isso.
-      if (!isLoadingMedals) { // Apenas para garantir, se por algum motivo ficou false
+      if (!isLoadingMedals) {
         setIsLoadingMedals(true);
       }
     }
-  }, [isLoadingHabits, isLoadingLogs, habits, habitLogs]); // Reavalia quando os estados de carregamento base ou os dados mudam
+  }, [isLoadingHabits, isLoadingLogs, habits, habitLogs]);
 
 
   const createHabit = async (formData: HabitFormData) => {
-    const newHabit: Habit = {
-      id: generateUUID(),
-      name: formData.name,
-      category: formData.category,
-      difficulty: formData.difficulty,
-      frequency: formData.frequency,
-      color: formData.color === HABIT_COLORS[0].value ? undefined : formData.color,
-      createdAt: Date.now(),
-      points: POINTS_PER_DIFFICULTY[formData.difficulty],
-    };
     try {
-      await dbAddHabit(newHabit);
+      await dbAddHabit(formData);
       toast({ title: "Sucesso", description: "Hábito criado com sucesso." });
-      await refreshHabits(); 
+      await refreshData(); 
     } catch (error) {
       console.error("Failed to create habit:", error);
       toast({ title: "Erro", description: "Não foi possível criar o hábito.", variant: "destructive" });
@@ -107,19 +96,17 @@ export function useHabitData() {
       toast({ title: "Erro", description: "Hábito não encontrado.", variant: "destructive" });
       return;
     }
-    const updatedHabit: Habit = {
-      ...existingHabit,
-      name: formData.name,
-      category: formData.category,
-      difficulty: formData.difficulty,
-      frequency: formData.frequency,
-      color: formData.color === HABIT_COLORS[0].value ? undefined : formData.color,
-      points: POINTS_PER_DIFFICULTY[formData.difficulty],
+
+    // A função updateHabit agora espera o objeto Habit completo
+    const updatedHabitData: Habit = {
+        ...existingHabit,
+        ...formData,
     };
+    
     try {
-      await dbUpdateHabit(updatedHabit);
+      await dbUpdateHabit(updatedHabitData);
       toast({ title: "Sucesso", description: "Hábito atualizado com sucesso." });
-      await refreshHabits(); 
+      await refreshData(); 
     } catch (error) {
       console.error("Failed to update habit:", error);
       toast({ title: "Erro", description: "Não foi possível atualizar o hábito.", variant: "destructive" });
@@ -130,8 +117,7 @@ export function useHabitData() {
     try {
       await dbDeleteHabit(id);
       toast({ title: "Sucesso", description: "Hábito excluído com sucesso." });
-      await refreshHabits(); 
-      await refreshHabitLogs(); 
+      await refreshData(); 
     } catch (error) {
       console.error("Failed to delete habit:", error);
       toast({ title: "Erro", description: "Não foi possível excluir o hábito.", variant: "destructive" });
@@ -142,14 +128,14 @@ export function useHabitData() {
     const dateString = format(date, "yyyy-MM-dd");
     try {
       const existingLog = await dbGetHabitLogByHabitIdAndDate(habitId, dateString);
-      if (existingLog) {
+      if (existingLog && existingLog.id) {
         await dbDeleteHabitLog(existingLog.id);
         toast({ title: "Hábito Desmarcado", description: "Hábito marcado como não concluído para hoje." });
       } else {
         await dbLogHabitCompletion(habitId, dateString, notes);
         toast({ title: "Ótimo trabalho!", description: `Hábito concluído${notes ? ' com nota' : ''}.`, className: "bg-success text-success-foreground" });
       }
-      await refreshHabitLogs(); 
+      await refreshData(); 
     } catch (error) {
       console.error("Failed to log habit completion:", error);
       toast({ title: "Erro", description: "Não foi possível atualizar a conclusão do hábito.", variant: "destructive" });
@@ -179,10 +165,15 @@ export function useHabitData() {
         toast({ title: "Erro", description: "Registro de hábito não encontrado.", variant: "destructive" });
         return;
       }
-      const updatedLog = { ...logToUpdate, notes: newNotes };
-      await dbUpdateHabitLog(updatedLog);
+      // Se newNotes for undefined, removemos o campo. Se for uma string vazia, mantemos.
+      const updatedLogData: any = { ...logToUpdate, notes: newNotes };
+       if (newNotes === undefined) {
+           delete updatedLogData.notes;
+       }
+
+      await dbUpdateHabitLog(updatedLogData);
       toast({ title: "Sucesso", description: "Nota atualizada com sucesso." });
-      await refreshHabitLogs();
+      await refreshData();
     } catch (error) {
       console.error("Failed to update log notes:", error);
       toast({ title: "Erro", description: "Não foi possível atualizar a nota.", variant: "destructive" });
@@ -194,7 +185,7 @@ export function useHabitData() {
     habits,
     habitLogs,
     achievedMedals,
-    isLoading: isLoadingHabits || isLoadingLogs || isLoadingMedals,
+    isLoading: isUserLoading || isLoadingHabits || isLoadingLogs || isLoadingMedals,
     createHabit,
     editHabit,
     removeHabit,
@@ -202,7 +193,5 @@ export function useHabitData() {
     isHabitCompletedToday,
     getCompletionsForHabitOnDate,
     updateLogNotes,
-    refreshHabits, 
-    refreshHabitLogs,
   };
 }

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "user": {
@@ -22,11 +23,82 @@
         "displayName",
         "email"
       ]
+    },
+    "habit": {
+      "title": "Habit",
+      "description": "A habit a user wants to track.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the habit."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the habit."
+        },
+        "difficulty": {
+          "type": "number",
+          "description": "The difficulty of the habit (1, 2, or 3)."
+        },
+        "frequency": {
+          "type": "string",
+          "enum": ["daily", "weekly"],
+          "description": "How often the habit should be performed."
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "The timestamp when the habit was created."
+        },
+        "color": {
+          "type": "string",
+          "description": "A color for UI representation."
+        },
+        "points": {
+          "type": "number",
+          "description": "Points awarded for completing this habit."
+        }
+      },
+      "required": ["name", "category", "difficulty", "frequency", "createdAt", "points"]
+    },
+    "habitLog": {
+      "title": "Habit Log",
+      "description": "A record of a habit completion.",
+      "type": "object",
+      "properties": {
+        "habitId": {
+          "type": "string",
+          "description": "The ID of the completed habit."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date of completion in YYYY-MM-DD format."
+        },
+        "completedAt": {
+          "type": "number",
+          "description": "The timestamp of completion."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes for the completion."
+        }
+      },
+      "required": ["habitId", "date", "completedAt"]
     }
   },
   "auth": {
     "providers": [
       "google.com"
     ]
+  },
+  "firestore": {
+    "/users/{userId}/habits/{habitId}": {
+      "schema": { "$ref": "#/entities/habit" },
+      "description": "Stores individual habit documents for a specific user."
+    },
+    "/users/{userId}/habitLogs/{habitLogId}": {
+      "schema": { "$ref": "#/entities/habitLog" },
+      "description": "Stores completion logs for a user's habits."
+    }
   }
 }

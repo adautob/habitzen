@@ -43,6 +43,7 @@ export interface HabitFormData {
   category: string;
   difficulty: HabitDifficulty;
   frequency: HabitFrequency;
+  color?: string;
 }
 
 // For data export
@@ -51,4 +52,3 @@ export interface ExportData {
   habitLogs: HabitLog[];
   achievedMedals?: Pick<Medal, 'id' | 'achievedAt'>[]; 
 }
-

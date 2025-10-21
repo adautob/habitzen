@@ -1,196 +1,179 @@
 
 "use client";
-import type { Habit, HabitLog, ExportData } from "@/types";
-import { DB_NAME, DB_VERSION, HABITS_STORE_NAME, HABIT_LOGS_STORE_NAME } from "./constants";
-import { generateUUID } from "@/lib/uuid"; // Importar o gerador de UUID
+import type { Habit, HabitLog, HabitFormData } from "@/types";
+import {
+  getFirestore,
+  collection,
+  doc,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  query,
+  where,
+  Timestamp,
+  getDoc,
+} from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { initializeFirebase } from "@/firebase";
+import { POINTS_PER_DIFFICULTY } from "./constants";
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+// Helper para obter o firestore db
+const getDb = () => {
+    const { firestore } = initializeFirebase();
+    return firestore;
+}
 
-const initDB = (): Promise<IDBDatabase> => {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error("IndexedDB cannot be used in SSR."));
-  }
-  if (dbPromise) return dbPromise;
+// Helper para obter o UID do usuário atual
+const getUserId = (): string | null => {
+    const auth = getAuth();
+    return auth.currentUser?.uid || null;
+}
 
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+// *** Funções de Hábitos (Habits) ***
 
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(HABITS_STORE_NAME)) {
-        db.createObjectStore(HABITS_STORE_NAME, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(HABIT_LOGS_STORE_NAME)) {
-        const habitLogsStore = db.createObjectStore(HABIT_LOGS_STORE_NAME, { keyPath: "id" });
-        habitLogsStore.createIndex("habitId", "habitId", { unique: false });
-        habitLogsStore.createIndex("date", "date", { unique: false });
-        habitLogsStore.createIndex("habitId_date", ["habitId", "date"], { unique: true });
-      }
-    };
+export const addHabit = async (habitData: HabitFormData): Promise<string> => {
+  const userId = getUserId();
+  if (!userId) throw new Error("Usuário não autenticado.");
+  const db = getDb();
+  
+  const habitCollectionRef = collection(db, "users", userId, "habits");
 
-    request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
-    };
+  const newHabit: Omit<Habit, "id"> = {
+    name: habitData.name,
+    category: habitData.category,
+    difficulty: habitData.difficulty,
+    frequency: habitData.frequency,
+    color: habitData.color,
+    createdAt: Date.now(),
+    points: POINTS_PER_DIFFICULTY[habitData.difficulty],
+  };
 
-    request.onerror = (event) => {
-      console.error("IndexedDB error:", (event.target as IDBOpenDBRequest).error);
-      reject((event.target as IDBOpenDBRequest).error);
-    };
-  });
-  return dbPromise;
+  const docRef = await addDoc(habitCollectionRef, newHabit);
+  return docRef.id;
 };
 
-export const addHabit = async (habit: Habit): Promise<string> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABITS_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HABITS_STORE_NAME);
-    const request = store.add(habit);
-    request.onsuccess = () => resolve(request.result as string);
-    request.onerror = () => reject(request.error);
-  });
-};
 
 export const getHabits = async (): Promise<Habit[]> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABITS_STORE_NAME, "readonly");
-    const store = transaction.objectStore(HABITS_STORE_NAME);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result as Habit[]);
-    request.onerror = () => reject(request.error);
-  });
+  const userId = getUserId();
+  if (!userId) return [];
+  const db = getDb();
+  const habitCollectionRef = collection(db, "users", userId, "habits");
+  const snapshot = await getDocs(habitCollectionRef);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
 };
 
-export const updateHabit = async (habit: Habit): Promise<string> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABITS_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HABITS_STORE_NAME);
-    const request = store.put(habit);
-    request.onsuccess = () => resolve(request.result as string);
-    request.onerror = () => reject(request.error);
-  });
+export const updateHabit = async (habit: Habit): Promise<void> => {
+  const userId = getUserId();
+  if (!userId) throw new Error("Usuário não autenticado.");
+  if (!habit.id) throw new Error("ID do hábito é necessário para atualização.");
+  const db = getDb();
+
+  const habitDocRef = doc(db, "users", userId, "habits", habit.id);
+  // O ID já está no caminho do documento, então não o incluímos nos dados a serem definidos
+  const { id, ...habitData } = habit; 
+  
+  await updateDoc(habitDocRef, habitData);
 };
 
-export const deleteHabit = async (id: string): Promise<void> => {
-  const db = await initDB();
-  return new Promise(async (resolve, reject) => {
-    // Also delete associated logs
-    const logs = await getHabitLogs(id);
-    const logDeletionPromises = logs.map(log => deleteHabitLog(log.id));
-    await Promise.all(logDeletionPromises).catch(reject);
 
-    const transaction = db.transaction(HABITS_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HABITS_STORE_NAME);
-    const request = store.delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+export const deleteHabit = async (habitId: string): Promise<void> => {
+  const userId = getUserId();
+  if (!userId) throw new Error("Usuário não autenticado.");
+  const db = getDb();
+
+  // Iniciar um batch para excluir o hábito e seus logs atomicamente
+  const batch = writeBatch(db);
+
+  // 1. Excluir o documento do hábito
+  const habitDocRef = doc(db, "users", userId, "habits", habitId);
+  batch.delete(habitDocRef);
+
+  // 2. Encontrar e excluir todos os logs associados
+  const logsCollectionRef = collection(db, "users", userId, "habitLogs");
+  const logsQuery = query(logsCollectionRef, where("habitId", "==", habitId));
+  const logsSnapshot = await getDocs(logsQuery);
+  logsSnapshot.forEach(logDoc => {
+    batch.delete(logDoc.ref);
   });
+
+  // 3. Executar o batch
+  await batch.commit();
 };
+
+// *** Funções de Logs de Hábitos (HabitLogs) ***
 
 export const logHabitCompletion = async (habitId: string, date: string, notes?: string): Promise<HabitLog> => {
-  const db = await initDB();
-  const newLog: HabitLog = {
-    id: generateUUID(),
+  const userId = getUserId();
+  if (!userId) throw new Error("Usuário não autenticado.");
+  const db = getDb();
+
+  const newLogData = {
     habitId,
     date,
-    completedAt: Date.now(),
-    ...(notes && { notes }), // Add notes if provided
+    completedAt: Timestamp.now().toMillis(),
+    ...(notes && { notes }),
   };
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABIT_LOGS_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HABIT_LOGS_STORE_NAME);
-    const request = store.add(newLog);
-    request.onsuccess = () => resolve(newLog);
-    request.onerror = (event) => {
-      if (request.error?.name === 'ConstraintError') {
-        console.warn(`Hábito ${habitId} já registrado para a data ${date}.`);
-        getHabitLogByHabitIdAndDate(habitId, date).then(existingLog => {
-          if (existingLog) {
-            resolve(existingLog);
-          } else {
-            reject(request.error);
-          }
-        }).catch(reject);
-      } else {
-        reject(request.error);
-      }
-    };
-  });
+  
+  const logsCollectionRef = collection(db, "users", userId, "habitLogs");
+  const docRef = await addDoc(logsCollectionRef, newLogData);
+  
+  return { id: docRef.id, ...newLogData };
 };
+
 
 export const getHabitLogByHabitIdAndDate = async (habitId: string, date: string): Promise<HabitLog | undefined> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABIT_LOGS_STORE_NAME, "readonly");
-    const store = transaction.objectStore(HABIT_LOGS_STORE_NAME);
-    const index = store.index("habitId_date");
-    const request = index.get([habitId, date]);
-    request.onsuccess = () => resolve(request.result as HabitLog | undefined);
-    request.onerror = () => reject(request.error);
-  });
+  const userId = getUserId();
+  if (!userId) return undefined;
+  const db = getDb();
+  
+  const logsCollectionRef = collection(db, "users", userId, "habitLogs");
+  const q = query(logsCollectionRef, where("habitId", "==", habitId), where("date", "==", date));
+  
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return undefined;
+  }
+  
+  const doc = snapshot.docs[0];
+  return { id: doc.id, ...doc.data() } as HabitLog;
 };
+
 
 export const getHabitLogs = async (habitId?: string): Promise<HabitLog[]> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABIT_LOGS_STORE_NAME, "readonly");
-    const store = transaction.objectStore(HABIT_LOGS_STORE_NAME);
-    let request: IDBRequest<any[]>;
+    const userId = getUserId();
+    if (!userId) return [];
+    const db = getDb();
+    
+    const logsCollectionRef = collection(db, "users", userId, "habitLogs");
+    
+    let q;
     if (habitId) {
-      const index = store.index("habitId");
-      request = index.getAll(habitId);
+        q = query(logsCollectionRef, where("habitId", "==", habitId));
     } else {
-      request = store.getAll();
+        q = query(logsCollectionRef);
     }
-    request.onsuccess = () => resolve(request.result as HabitLog[]);
-    request.onerror = () => reject(request.error);
-  });
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as HabitLog);
 };
 
-export const updateHabitLog = async (log: HabitLog): Promise<string> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABIT_LOGS_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HABIT_LOGS_STORE_NAME);
-    const request = store.put(log);
-    request.onsuccess = () => resolve(request.result as string);
-    request.onerror = () => reject(request.error);
-  });
+export const updateHabitLog = async (log: HabitLog): Promise<void> => {
+    const userId = getUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    if (!log.id) throw new Error("ID do log é necessário para atualização.");
+    const db = getDb();
+
+    const logDocRef = doc(db, "users", userId, "habitLogs", log.id);
+    const { id, ...logData } = log;
+    await updateDoc(logDocRef, logData);
 };
 
 export const deleteHabitLog = async (logId: string): Promise<void> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(HABIT_LOGS_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HABIT_LOGS_STORE_NAME);
-    const request = store.delete(logId);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-};
-
-
-export const exportData = async (): Promise<void> => {
-  try {
-    const habits = await getHabits();
-    const habitLogs = await getHabitLogs();
-    const data: ExportData = { habits, habitLogs };
-    
-    const jsonString = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonString], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `habitzen_backup_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error("Error exporting data:", error);
-    throw error;
-  }
+  const userId = getUserId();
+  if (!userId) throw new Error("Usuário não autenticado.");
+  const db = getDb();
+  const logDocRef = doc(db, "users", userId, "habitLogs", logId);
+  await deleteDoc(logDocRef);
 };
