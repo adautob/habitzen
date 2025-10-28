@@ -72,8 +72,11 @@ export function useHabitData() {
     }
   }, [habits, habitLogs, isLoading]);
 
-  const createHabit = async (formData: HabitFormData) => {
-    if (!user) return;
+  const createHabit = useCallback((formData: HabitFormData) => {
+    if (!user) {
+        toast({ title: "Erro de Autenticação", description: "Você precisa estar logado para criar um hábito.", variant: "destructive" });
+        return;
+    }
     
     const tempId = generateUUID();
     const newHabit: Habit = {
@@ -82,20 +85,26 @@ export function useHabitData() {
       points: POINTS_PER_DIFFICULTY[formData.difficulty],
       ...formData,
     };
+
+    // Optimistic update
     setHabits(prev => [newHabit, ...prev].sort((a, b) => b.createdAt - a.createdAt));
     toast({ title: "Sucesso", description: "Hábito criado com sucesso." });
     
-    try {
-      const newId = await dbAddHabit(user.uid, formData);
-      setHabits(prev => prev.map(h => (h.id === tempId ? { ...h, id: newId } : h)));
-    } catch (error) {
-      console.error("Failed to create habit:", error);
-      toast({ title: "Erro", description: "Falha ao salvar hábito. Desfazendo.", variant: "destructive" });
-      setHabits(prev => prev.filter(h => h.id !== tempId));
-    }
-  };
+    // Persist to DB
+    dbAddHabit(user.uid, formData)
+      .then(newId => {
+        // Replace temporary ID with the real one from Firestore
+        setHabits(prev => prev.map(h => (h.id === tempId ? { ...h, id: newId } : h)));
+      })
+      .catch(error => {
+        console.error("Failed to create habit:", error);
+        toast({ title: "Erro", description: "Falha ao salvar hábito. Desfazendo.", variant: "destructive" });
+        // Rollback optimistic update
+        setHabits(prev => prev.filter(h => h.id !== tempId));
+      });
+  }, [user, toast]);
 
-  const editHabit = async (habitId: string, formData: HabitFormData) => {
+  const editHabit = useCallback(async (habitId: string, formData: HabitFormData) => {
     if (!user) return;
     const originalHabits = habits;
     const habitToUpdate = habits.find(h => h.id === habitId);
@@ -117,9 +126,9 @@ export function useHabitData() {
       toast({ title: "Erro", description: "Falha ao atualizar hábito. Revertendo.", variant: "destructive" });
       setHabits(originalHabits);
     }
-  };
+  }, [user, habits, toast]);
 
-  const removeHabit = async (habitId: string) => {
+  const removeHabit = useCallback(async (habitId: string) => {
     if (!user) return;
     const originalHabits = habits;
     const originalLogs = habitLogs;
@@ -136,9 +145,9 @@ export function useHabitData() {
       setHabits(originalHabits);
       setHabitLogs(originalLogs);
     }
-  };
+  }, [user, habits, habitLogs, toast]);
 
-  const completeHabit = async (habitId: string, date: Date = new Date(), notes?: string) => {
+  const completeHabit = useCallback(async (habitId: string, date: Date = new Date(), notes?: string) => {
     if (!user) return;
     const dateString = format(date, "yyyy-MM-dd");
     const existingLog = habitLogs.find(log => log.habitId === habitId && log.date === dateString);
@@ -177,9 +186,9 @@ export function useHabitData() {
         setHabitLogs(prev => prev.filter(l => l.id !== tempId));
       }
     }
-  };
+  }, [user, habitLogs, toast]);
 
-  const updateLogNotes = async (logId: string, newNotes: string | undefined) => {
+  const updateLogNotes = useCallback(async (logId: string, newNotes: string | undefined) => {
       if (!user) return;
       const originalLogs = habitLogs;
       const logToUpdate = habitLogs.find(log => log.id === logId);
@@ -197,7 +206,7 @@ export function useHabitData() {
         toast({ title: "Erro", description: "Falha ao salvar nota. Revertendo.", variant: "destructive" });
         setHabitLogs(originalLogs);
       }
-  };
+  }, [user, habitLogs, toast]);
   
   const isHabitCompletedToday = useCallback((habitId: string, date: Date = new Date()): HabitLog | undefined => {
     const dateString = format(date, "yyyy-MM-dd");
