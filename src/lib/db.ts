@@ -15,7 +15,6 @@ import {
   Timestamp,
   getDoc,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { initializeFirebase } from "@/firebase";
 import { POINTS_PER_DIFFICULTY } from "./constants";
 
@@ -25,16 +24,9 @@ const getDb = () => {
     return firestore;
 }
 
-// Helper para obter o UID do usuário atual
-const getUserId = (): string | null => {
-    const auth = getAuth();
-    return auth.currentUser?.uid || null;
-}
-
 // *** Funções de Hábitos (Habits) ***
 
-export const addHabit = async (habitData: HabitFormData): Promise<string> => {
-  const userId = getUserId();
+export const addHabit = async (userId: string, habitData: HabitFormData): Promise<string> => {
   if (!userId) throw new Error("Usuário não autenticado.");
   const db = getDb();
   
@@ -55,8 +47,7 @@ export const addHabit = async (habitData: HabitFormData): Promise<string> => {
 };
 
 
-export const getHabits = async (): Promise<Habit[]> => {
-  const userId = getUserId();
+export const getHabits = async (userId: string): Promise<Habit[]> => {
   if (!userId) return [];
   const db = getDb();
   const habitCollectionRef = collection(db, "users", userId, "habits");
@@ -64,8 +55,7 @@ export const getHabits = async (): Promise<Habit[]> => {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
 };
 
-export const updateHabit = async (habit: Habit): Promise<void> => {
-  const userId = getUserId();
+export const updateHabit = async (userId: string, habit: Habit): Promise<void> => {
   if (!userId) throw new Error("Usuário não autenticado.");
   if (!habit.id) throw new Error("ID do hábito é necessário para atualização.");
   const db = getDb();
@@ -78,8 +68,7 @@ export const updateHabit = async (habit: Habit): Promise<void> => {
 };
 
 
-export const deleteHabit = async (habitId: string): Promise<void> => {
-  const userId = getUserId();
+export const deleteHabit = async (userId: string, habitId: string): Promise<void> => {
   if (!userId) throw new Error("Usuário não autenticado.");
   const db = getDb();
 
@@ -104,8 +93,7 @@ export const deleteHabit = async (habitId: string): Promise<void> => {
 
 // *** Funções de Logs de Hábitos (HabitLogs) ***
 
-export const logHabitCompletion = async (habitId: string, date: string, notes?: string): Promise<HabitLog> => {
-  const userId = getUserId();
+export const logHabitCompletion = async (userId: string, habitId: string, date: string, notes?: string): Promise<HabitLog> => {
   if (!userId) throw new Error("Usuário não autenticado.");
   const db = getDb();
 
@@ -123,8 +111,7 @@ export const logHabitCompletion = async (habitId: string, date: string, notes?: 
 };
 
 
-export const getHabitLogByHabitIdAndDate = async (habitId: string, date: string): Promise<HabitLog | undefined> => {
-  const userId = getUserId();
+export const getHabitLogByHabitIdAndDate = async (userId: string, habitId: string, date: string): Promise<HabitLog | undefined> => {
   if (!userId) return undefined;
   const db = getDb();
   
@@ -141,8 +128,7 @@ export const getHabitLogByHabitIdAndDate = async (habitId: string, date: string)
 };
 
 
-export const getHabitLogs = async (habitId?: string): Promise<HabitLog[]> => {
-    const userId = getUserId();
+export const getHabitLogs = async (userId: string, habitId?: string): Promise<HabitLog[]> => {
     if (!userId) return [];
     const db = getDb();
     
@@ -159,8 +145,7 @@ export const getHabitLogs = async (habitId?: string): Promise<HabitLog[]> => {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as HabitLog);
 };
 
-export const updateHabitLog = async (log: HabitLog): Promise<void> => {
-    const userId = getUserId();
+export const updateHabitLog = async (userId: string, log: HabitLog): Promise<void> => {
     if (!userId) throw new Error("Usuário não autenticado.");
     if (!log.id) throw new Error("ID do log é necessário para atualização.");
     const db = getDb();
@@ -170,8 +155,7 @@ export const updateHabitLog = async (log: HabitLog): Promise<void> => {
     await updateDoc(logDocRef, logData);
 };
 
-export const deleteHabitLog = async (logId: string): Promise<void> => {
-  const userId = getUserId();
+export const deleteHabitLog = async (userId: string, logId: string): Promise<void> => {
   if (!userId) throw new Error("Usuário não autenticado.");
   const db = getDb();
   const logDocRef = doc(db, "users", userId, "habitLogs", logId);

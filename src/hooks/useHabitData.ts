@@ -43,8 +43,8 @@ export function useHabitData() {
       setIsLoading(true);
       try {
         const [fetchedHabits, fetchedLogs] = await Promise.all([
-          dbGetHabits(),
-          dbGetHabitLogs(),
+          dbGetHabits(user.uid),
+          dbGetHabitLogs(user.uid),
         ]);
         setHabits((fetchedHabits || []).sort((a, b) => b.createdAt - a.createdAt));
         setHabitLogs(fetchedLogs || []);
@@ -75,30 +75,28 @@ export function useHabitData() {
   const createHabit = async (formData: HabitFormData) => {
     if (!user) return;
     
-    // Otimista: Atualiza UI primeiro
+    const tempId = generateUUID();
     const newHabit: Habit = {
-      id: generateUUID(), // ID temporário
+      id: tempId,
       createdAt: Date.now(),
       points: POINTS_PER_DIFFICULTY[formData.difficulty],
       ...formData,
     };
-    setHabits(prev => [newHabit, ...prev]);
+    setHabits(prev => [newHabit, ...prev].sort((a, b) => b.createdAt - a.createdAt));
     toast({ title: "Sucesso", description: "Hábito criado com sucesso." });
     
     try {
-      // Sincroniza com DB
-      const newId = await dbAddHabit(formData);
-      // Atualiza o ID do hábito com o ID real do DB
-      setHabits(prev => prev.map(h => h.id === newHabit.id ? { ...h, id: newId } : h));
+      const newId = await dbAddHabit(user.uid, formData);
+      setHabits(prev => prev.map(h => (h.id === tempId ? { ...h, id: newId } : h)));
     } catch (error) {
       console.error("Failed to create habit:", error);
       toast({ title: "Erro", description: "Falha ao salvar hábito. Desfazendo.", variant: "destructive" });
-      // Rollback em caso de falha
-      setHabits(prev => prev.filter(h => h.id !== newHabit.id));
+      setHabits(prev => prev.filter(h => h.id !== tempId));
     }
   };
 
   const editHabit = async (habitId: string, formData: HabitFormData) => {
+    if (!user) return;
     const originalHabits = habits;
     const habitToUpdate = habits.find(h => h.id === habitId);
     if (!habitToUpdate) return;
@@ -106,65 +104,62 @@ export function useHabitData() {
     const updatedHabit = { 
         ...habitToUpdate, 
         ...formData,
-        points: POINTS_PER_DIFFICULTY[formData.difficulty] // Recalcula pontos se dificuldade mudar
+        points: POINTS_PER_DIFFICULTY[formData.difficulty]
     };
 
-    // Otimista
     setHabits(prev => prev.map(h => h.id === habitId ? updatedHabit : h));
     toast({ title: "Sucesso", description: "Hábito atualizado com sucesso." });
     
     try {
-      await dbUpdateHabit(updatedHabit);
+      await dbUpdateHabit(user.uid, updatedHabit);
     } catch (error) {
       console.error("Failed to update habit:", error);
       toast({ title: "Erro", description: "Falha ao atualizar hábito. Revertendo.", variant: "destructive" });
-      // Rollback
       setHabits(originalHabits);
     }
   };
 
   const removeHabit = async (habitId: string) => {
+    if (!user) return;
     const originalHabits = habits;
     const originalLogs = habitLogs;
 
-    // Otimista
     setHabits(prev => prev.filter(h => h.id !== habitId));
     setHabitLogs(prev => prev.filter(l => l.habitId !== habitId));
     toast({ title: "Sucesso", description: "Hábito excluído com sucesso." });
     
     try {
-      await dbDeleteHabit(habitId);
+      await dbDeleteHabit(user.uid, habitId);
     } catch (error) {
       console.error("Failed to delete habit:", error);
       toast({ title: "Erro", description: "Falha ao excluir hábito. Revertendo.", variant: "destructive" });
-      // Rollback
       setHabits(originalHabits);
       setHabitLogs(originalLogs);
     }
   };
 
   const completeHabit = async (habitId: string, date: Date = new Date(), notes?: string) => {
+    if (!user) return;
     const dateString = format(date, "yyyy-MM-dd");
     const existingLog = habitLogs.find(log => log.habitId === habitId && log.date === dateString);
 
     if (existingLog) {
-      // Desmarcar - Otimista
+      const originalLogs = habitLogs;
       setHabitLogs(prev => prev.filter(log => log.id !== existingLog.id));
       toast({ title: "Hábito Desmarcado", description: "Hábito marcado como não concluído." });
       
       try {
-        await dbDeleteHabitLog(existingLog.id);
+        await dbDeleteHabitLog(user.uid, existingLog.id);
       } catch (error) {
         console.error("Failed to delete habit log:", error);
         toast({ title: "Erro", description: "Falha ao desmarcar. Revertendo.", variant: "destructive" });
-        // Rollback
-        setHabitLogs(prev => [...prev, existingLog]);
+        setHabitLogs(originalLogs);
       }
 
     } else {
-      // Marcar - Otimista
+      const tempId = generateUUID();
       const newLog: HabitLog = {
-        id: generateUUID(), // ID temporário
+        id: tempId,
         habitId,
         date: dateString,
         completedAt: Date.now(),
@@ -174,35 +169,32 @@ export function useHabitData() {
       toast({ title: "Ótimo trabalho!", description: `Hábito concluído${notes ? ' com nota' : ''}.`, className: "bg-success text-success-foreground" });
       
       try {
-        const savedLog = await dbLogHabitCompletion(habitId, dateString, notes);
-         // Atualiza o log com o ID real do DB
-        setHabitLogs(prev => prev.map(l => l.id === newLog.id ? savedLog : l));
+        const savedLog = await dbLogHabitCompletion(user.uid, habitId, dateString, notes);
+        setHabitLogs(prev => prev.map(l => l.id === tempId ? savedLog : l));
       } catch (error) {
         console.error("Failed to log habit completion:", error);
         toast({ title: "Erro", description: "Falha ao concluir hábito. Desfazendo.", variant: "destructive" });
-        // Rollback
-        setHabitLogs(prev => prev.filter(l => l.id !== newLog.id));
+        setHabitLogs(prev => prev.filter(l => l.id !== tempId));
       }
     }
   };
 
   const updateLogNotes = async (logId: string, newNotes: string | undefined) => {
+      if (!user) return;
       const originalLogs = habitLogs;
       const logToUpdate = habitLogs.find(log => log.id === logId);
       if (!logToUpdate) return;
       
       const updatedLog = { ...logToUpdate, notes: newNotes };
       
-      // Otimista
       setHabitLogs(prev => prev.map(l => l.id === logId ? updatedLog : l));
       toast({ title: "Sucesso", description: "Nota atualizada." });
       
       try {
-        await dbUpdateHabitLog(updatedLog);
+        await dbUpdateHabitLog(user.uid, updatedLog);
       } catch (error) {
         console.error("Failed to update log notes:", error);
         toast({ title: "Erro", description: "Falha ao salvar nota. Revertendo.", variant: "destructive" });
-        // Rollback
         setHabitLogs(originalLogs);
       }
   };
