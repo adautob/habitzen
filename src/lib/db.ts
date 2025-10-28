@@ -141,7 +141,7 @@ export const getHabitLogs = async (userId: string, habitId?: string): Promise<Ha
     if (habitId) {
         q = query(logsCollectionRef, where("habitId", "==", habitId));
     } else {
-        q = query(logsCollectionref);
+        q = query(logsCollectionRef);
     }
 
     const snapshot = await getDocs(q);
