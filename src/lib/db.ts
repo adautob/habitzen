@@ -14,9 +14,12 @@ import {
   where,
   Timestamp,
   getDoc,
+  Firestore,
 } from "firebase/firestore";
 import { initializeFirebase } from "@/firebase";
 import { POINTS_PER_DIFFICULTY } from "./constants";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 // Helper para obter o firestore db
 const getDb = () => {
@@ -26,24 +29,41 @@ const getDb = () => {
 
 // *** Funções de Hábitos (Habits) ***
 
-export const addHabit = async (userId: string, habitData: HabitFormData): Promise<string> => {
-  if (!userId) throw new Error("Usuário não autenticado.");
-  const db = getDb();
-  
-  const habitCollectionRef = collection(db, "users", userId, "habits");
+export const addHabit = (userId: string, habitData: HabitFormData): Promise<string> => {
+  return new Promise(async (resolve, reject) => {
+    if (!userId) {
+      const err = new Error("Usuário não autenticado.");
+      reject(err);
+      return;
+    }
+    const db = getDb();
+    
+    const habitCollectionRef = collection(db, "users", userId, "habits");
 
-  const newHabit: Omit<Habit, "id"> = {
-    name: habitData.name,
-    category: habitData.category,
-    difficulty: habitData.difficulty,
-    frequency: habitData.frequency,
-    createdAt: Date.now(),
-    points: POINTS_PER_DIFFICULTY[habitData.difficulty],
-    ...(habitData.color && { color: habitData.color }),
-  };
+    const newHabitData: Omit<Habit, "id" | "createdAt"> & { createdAt: number } = {
+        name: habitData.name,
+        category: habitData.category,
+        difficulty: habitData.difficulty,
+        frequency: habitData.frequency,
+        createdAt: Date.now(),
+        points: POINTS_PER_DIFFICULTY[habitData.difficulty],
+        ...(habitData.color && { color: habitData.color }),
+    };
 
-  const docRef = await addDoc(habitCollectionRef, newHabit);
-  return docRef.id;
+    addDoc(habitCollectionRef, newHabitData)
+      .then(docRef => {
+        resolve(docRef.id);
+      })
+      .catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+          path: habitCollectionRef.path,
+          operation: 'create',
+          requestResourceData: newHabitData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        reject(permissionError);
+      });
+  });
 };
 
 
@@ -51,66 +71,108 @@ export const getHabits = async (userId: string): Promise<Habit[]> => {
   if (!userId) return [];
   const db = getDb();
   const habitCollectionRef = collection(db, "users", userId, "habits");
-  const snapshot = await getDocs(habitCollectionRef);
-  if (snapshot.empty) {
+  try {
+    const snapshot = await getDocs(habitCollectionRef);
+    if (snapshot.empty) {
+      return [];
+    }
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
+  } catch (serverError) {
+    const permissionError = new FirestorePermissionError({
+      path: habitCollectionRef.path,
+      operation: 'list',
+    });
+    errorEmitter.emit('permission-error', permissionError);
+    // Return empty array on error to prevent app crash
     return [];
   }
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
 };
 
-export const updateHabit = async (userId: string, habit: Habit): Promise<void> => {
-  if (!userId) throw new Error("Usuário não autenticado.");
-  if (!habit.id) throw new Error("ID do hábito é necessário para atualização.");
-  const db = getDb();
+export const updateHabit = (userId: string, habit: Habit): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        if (!userId) return reject(new Error("Usuário não autenticado."));
+        if (!habit.id) return reject(new Error("ID do hábito é necessário para atualização."));
+        const db = getDb();
 
-  const habitDocRef = doc(db, "users", userId, "habits", habit.id);
-  // O ID já está no caminho do documento, então não o incluímos nos dados a serem definidos
-  const { id, ...habitData } = habit; 
-  
-  await updateDoc(habitDocRef, habitData);
+        const habitDocRef = doc(db, "users", userId, "habits", habit.id);
+        const { id, ...habitData } = habit; 
+        
+        updateDoc(habitDocRef, habitData)
+            .then(resolve)
+            .catch(serverError => {
+                const permissionError = new FirestorePermissionError({
+                    path: habitDocRef.path,
+                    operation: 'update',
+                    requestResourceData: habitData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                reject(permissionError);
+            });
+    });
 };
 
 
-export const deleteHabit = async (userId: string, habitId: string): Promise<void> => {
-  if (!userId) throw new Error("Usuário não autenticado.");
-  const db = getDb();
+export const deleteHabit = (userId: string, habitId: string): Promise<void> => {
+    return new Promise(async (resolve, reject) => {
+        if (!userId) return reject(new Error("Usuário não autenticado."));
+        const db = getDb();
+        const batch = writeBatch(db);
+        const habitDocRef = doc(db, "users", userId, "habits", habitId);
+        batch.delete(habitDocRef);
 
-  // Iniciar um batch para excluir o hábito e seus logs atomicamente
-  const batch = writeBatch(db);
-
-  // 1. Excluir o documento do hábito
-  const habitDocRef = doc(db, "users", userId, "habits", habitId);
-  batch.delete(habitDocRef);
-
-  // 2. Encontrar e excluir todos os logs associados
-  const logsCollectionRef = collection(db, "users", userId, "habitLogs");
-  const logsQuery = query(logsCollectionRef, where("habitId", "==", habitId));
-  const logsSnapshot = await getDocs(logsQuery);
-  logsSnapshot.forEach(logDoc => {
-    batch.delete(logDoc.ref);
-  });
-
-  // 3. Executar o batch
-  await batch.commit();
+        const logsCollectionRef = collection(db, "users", userId, "habitLogs");
+        const logsQuery = query(logsCollectionRef, where("habitId", "==", habitId));
+        
+        try {
+            const logsSnapshot = await getDocs(logsQuery);
+            logsSnapshot.forEach(logDoc => {
+                batch.delete(logDoc.ref);
+            });
+            
+            await batch.commit();
+            resolve();
+        } catch (serverError: any) {
+            // Check if it's a permission error during the query or the commit
+            const failedPath = serverError.path || logsQuery.toString();
+            const permissionError = new FirestorePermissionError({
+                path: failedPath,
+                operation: 'delete', // A bit generic, but it's a batch
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            reject(permissionError);
+        }
+    });
 };
 
 // *** Funções de Logs de Hábitos (HabitLogs) ***
 
-export const logHabitCompletion = async (userId: string, habitId: string, date: string, notes?: string): Promise<HabitLog> => {
-  if (!userId) throw new Error("Usuário não autenticado.");
-  const db = getDb();
+export const logHabitCompletion = (userId: string, habitId: string, date: string, notes?: string): Promise<HabitLog> => {
+    return new Promise((resolve, reject) => {
+        if (!userId) return reject(new Error("Usuário não autenticado."));
+        const db = getDb();
 
-  const newLogData = {
-    habitId,
-    date,
-    completedAt: Timestamp.now().toMillis(),
-    ...(notes && { notes }),
-  };
-  
-  const logsCollectionRef = collection(db, "users", userId, "habitLogs");
-  const docRef = await addDoc(logsCollectionRef, newLogData);
-  
-  return { id: docRef.id, ...newLogData };
+        const newLogData = {
+            habitId,
+            date,
+            completedAt: Timestamp.now().toMillis(),
+            ...(notes && { notes }),
+        };
+        
+        const logsCollectionRef = collection(db, "users", userId, "habitLogs");
+        addDoc(logsCollectionRef, newLogData)
+            .then(docRef => {
+                resolve({ id: docRef.id, ...newLogData });
+            })
+            .catch(serverError => {
+                const permissionError = new FirestorePermissionError({
+                    path: logsCollectionRef.path,
+                    operation: 'create',
+                    requestResourceData: newLogData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                reject(permissionError);
+            });
+    });
 };
 
 
@@ -121,13 +183,22 @@ export const getHabitLogByHabitIdAndDate = async (userId: string, habitId: strin
   const logsCollectionRef = collection(db, "users", userId, "habitLogs");
   const q = query(logsCollectionRef, where("habitId", "==", habitId), where("date", "==", date));
   
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) {
+  try {
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      return undefined;
+    }
+    
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as HabitLog;
+  } catch (serverError) {
+    const permissionError = new FirestorePermissionError({
+        path: logsCollectionRef.path, // or q.toString() for more detail
+        operation: 'list',
+    });
+    errorEmitter.emit('permission-error', permissionError);
     return undefined;
   }
-  
-  const doc = snapshot.docs[0];
-  return { id: doc.id, ...doc.data() } as HabitLog;
 };
 
 
@@ -144,26 +215,58 @@ export const getHabitLogs = async (userId: string, habitId?: string): Promise<Ha
         q = query(logsCollectionRef);
     }
 
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
+    try {
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+          return [];
+      }
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as HabitLog);
+    } catch (serverError) {
+       const permissionError = new FirestorePermissionError({
+            path: logsCollectionRef.path,
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
         return [];
     }
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as HabitLog);
 };
 
-export const updateHabitLog = async (userId: string, log: HabitLog): Promise<void> => {
-    if (!userId) throw new Error("Usuário não autenticado.");
-    if (!log.id) throw new Error("ID do log é necessário para atualização.");
+export const updateHabitLog = (userId: string, log: HabitLog): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        if (!userId) return reject(new Error("Usuário não autenticado."));
+        if (!log.id) return reject(new Error("ID do log é necessário para atualização."));
+        const db = getDb();
+
+        const logDocRef = doc(db, "users", userId, "habitLogs", log.id);
+        const { id, ...logData } = log;
+        updateDoc(logDocRef, logData)
+            .then(resolve)
+            .catch(serverError => {
+                const permissionError = new FirestorePermissionError({
+                    path: logDocRef.path,
+                    operation: 'update',
+                    requestResourceData: logData
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                reject(permissionError);
+            });
+    });
+};
+
+export const deleteHabitLog = (userId: string, logId: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!userId) return reject(new Error("Usuário não autenticado."));
     const db = getDb();
-
-    const logDocRef = doc(db, "users", userId, "habitLogs", log.id);
-    const { id, ...logData } = log;
-    await updateDoc(logDocRef, logData);
-};
-
-export const deleteHabitLog = async (userId: string, logId: string): Promise<void> => {
-  if (!userId) throw new Error("Usuário não autenticado.");
-  const db = getDb();
-  const logDocRef = doc(db, "users", userId, "habitLogs", logId);
-  await deleteDoc(logDocRef);
+    const logDocRef = doc(db, "users", userId, "habitLogs", logId);
+    deleteDoc(logDocRef)
+      .then(resolve)
+      .catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: logDocRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        reject(permissionError);
+      });
+  });
 };
