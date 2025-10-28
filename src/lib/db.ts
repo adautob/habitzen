@@ -52,6 +52,9 @@ export const getHabits = async (userId: string): Promise<Habit[]> => {
   const db = getDb();
   const habitCollectionRef = collection(db, "users", userId, "habits");
   const snapshot = await getDocs(habitCollectionRef);
+  if (snapshot.empty) {
+    return [];
+  }
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
 };
 
@@ -138,10 +141,13 @@ export const getHabitLogs = async (userId: string, habitId?: string): Promise<Ha
     if (habitId) {
         q = query(logsCollectionRef, where("habitId", "==", habitId));
     } else {
-        q = query(logsCollectionRef);
+        q = query(logsCollectionref);
     }
 
     const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+        return [];
+    }
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as HabitLog);
 };
 
